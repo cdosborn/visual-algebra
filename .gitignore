@@ -6,3 +6,4 @@ cache/*
 build/*
 src/cache/*
 src/build/*
+elm_dependencies/*
