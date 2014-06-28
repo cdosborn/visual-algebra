@@ -3,7 +3,10 @@ import Regex (find, regex, AtMost)
 
 {-
     TODO:
+    eval is incomplete, it needs to eval its argument before evaluating its expression
+        this will at least effect how V.span [] is handled in Ui.elm
     clean-up sorting routine, especially draw method, handle order, unit vectors
+    annotate avg/add tests
     getBasis needs a helper, shouldn't need to pass [] as an arg
 -}
 
@@ -262,6 +265,21 @@ drawPlane basis units col vs =
         --points' = filter (\p'-> or (map (\p -> p == p') boundary)) points
         outline = outsidePath' points
     in filled col (polygon outline)
+
+
+--probably the worst blunder of code ever writtern
+--filters out non vectors before computing avg of vs
+avg vs = avgHelper (filter (\exp -> case exp of 
+            Vector a b c -> True 
+            _ -> False) vs) (Vector 0 0 0) 1.0
+
+
+
+avgHelper vs v counter = 
+    case vs of 
+    [] -> scale v (1 / counter)
+    one::more -> avgHelper more (add one v) (counter + 1) 
+
 
 {- 
     2D Functions
