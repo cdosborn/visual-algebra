@@ -1,132 +1,134 @@
 module Ui where
 
+import Window
+import Graphics.Input (..)
+import Array as A
+import Text as T
+
 import Vector as V
 import Constants as C
-import Window
-import Text as T
-import Graphics.Input (..)
+import Expr as E
+
 
 {-
     TODO:
     
     FIX TEMPORARY
 
-
-    in render does V.Span [Abyss] cause errors
-    add custom button input for + - to enable hover/etc
-    Why does selected have to be sorted in render?? -- because of button creation makes it way more efficient
-        maybe throw sorting inside of getButtons, to remove confusion
-    **when updating geometry, often i have pre-evaluated code, aka current geom
+    bring constants to module? 
     extract similar code in update methods (eval geom part) (eval geom part)
-    maybe i could write evaluate to take existing geom :/
-    pull state out of the selected signal
-    expose only signals and ui method
     pull out all 7s in render, add to Constants
+    getButton skips buttonStates of 3 kinda hacky
     
     grammar:
     exprs : expressions
     temp(Value|Exp) : represents the evaluated geometry before being stored as a value
     *Update : helper methods which handle * type of input (variable button/plus button)
+    buttonAction : hover/click ->  0/1
+    buttonType : fun/var/meta -> 0/1/2
+    buttonState : rest/hover/clicked/hid : 0/1/2/3 
+
+    assumptions:
 
 -}
 
 main = render <~ Window.dimensions ~ (foldp update model signals)
 
 -- Model
-model = { expressions = 
-             [ [ 0, 0 ] -- [functionID, varID,..]  
-             , [ 0, 1 ] 
-             , [ 0, 2 ]
-             , [ 0, 3 ] ]
-        , values = 
-             [ V.Vector 1 1 1
-             , V.Vector 2 1 2
-             , V.Vector 3 3 0
-             , V.Vector 1 0 2 ]
-        , tempValue = V.Abyss
-        , tempExp = [0]
-        , geomSelected = 0 -- id of geom
-        , selected = []
-        , notAllowed = [] }
+model = { exprs = C.expressions -- [[functionID, varID,..]], list of var expr
+        , values = C.values -- list of vectors behind all expressions
+        , temp = [] -- [[functionID, varID , ...]]
+        , funs = A.repeat (length C.funs) 0
+        , vars = A.repeat (length C.vars) 0 --  transparent state
+        , meta = A.repeat (length C.meta) 2 -- transparent state
+        , index = 0 -- index of expr
+        , expr = E.Empty 
+        }
 
+data Action = Click | Hover | None
+data State = Available | Hidden
+data Button = Fun Int State | Var Int State | Meta Int State
 -- Update
--- interpret selected into buttons pressed
--- for fun pressed determine selected/notallowed
--- package results into a model
-update signal model =
-    let inputId = fst signal
-        inputType = snd signal
-    in if | inputType == "variable" -> varUpdate inputId model
-          | inputType == "geom" -> geomUpdate inputId model
-          | inputType == "custom" -> customUpdate inputId model
+-- all button interactions (clicks/hovers) constitute the entire events sent to UI
+-- update redirects model updates based on type of update (fun/variable/meta)
+update (action, button) model =
+    case button of
+    Fun  _ Hidden -> model
+    Var  _ Hidden -> model
+    Meta _ Hidden -> model
+    _ -> 
+    (case action of 
+    Hover ->
+        case button of 
+        Var  index _ -> { model | vars <- A.set index 1 model.vars }
+        Fun  index _ -> { model | funs <- A.set index 1 model.funs }
+        Meta index _ -> { model | meta <- A.set index 1 model.meta }
+    Click -> 
+        case button of
+        Var  _ _ -> varUpdate  button model
+        Fun  _ _ -> funUpdate  button model
+        Meta _ _ -> metaUpdate button model
+    None -> 
+        case button of 
+        Var  index _ -> { model | vars <- A.set index 0 model.vars }
+        Fun  index _ -> { model | funs <- A.set index 0 model.funs }
+        Meta index _ -> { model | meta <- A.set index 0 model.meta })
 
-varUpdate inputId model =
-    let geomId = model.geomSelected
-        old = model.selected ++ model.notAllowed
-        toggled = toggleList inputId old
-        selected = if | geomId == 0 -> take 1 toggled
-                      | geomId == 2 || geomId == 3 -> take 2 toggled
-                      | otherwise -> toggled
-        notAllowed = drop (length selected) toggled
-        args = map (\i -> head (drop i model.values)) selected
-        temp = getTemp geomId args selected
-        tempValue = fst temp
-        tempExp = snd temp
-    in { model | tempValue <- tempValue
-       , tempExp <- tempExp
-       , selected <- selected
-       , notAllowed <- notAllowed }
-    
-geomUpdate inputId model =
-    let geomId = inputId
-        old = model.selected ++ model.notAllowed
-        len = length old
-        selected = if | geomId == 0 -> take 1 old
-                      | geomId == 2 || geomId == 3 -> take 2 old
-                      | otherwise -> old
-        notAllowed = drop (length selected) old
-        args = map (\i -> head (drop i model.values)) selected
-        temp = getTemp geomId args selected
-        tempValue = fst temp
-        tempExp = snd temp
-    in { model | tempValue <- tempValue
-               , tempExp <- tempExp
-               , geomSelected <- geomId
-               , selected <- selected
-               , notAllowed <- notAllowed }
 
-customUpdate inputId model =
-    let len = length model.values
-    in if | inputId == 0 {- + -} && len < 7 -> addUpdate model
-          | inputId == 1 {- - -} && len > 0 -> minusUpdate model
-          | otherwise -> model
+
+-- Pre: assumes buttonId refers to the id of a variable button
+-- Post: updates model based on the button clicked
+varUpdate button model =
+    let index = model.index -- index of expression to replace value
+        expr = case button of 
+                Fun buttonId _ -> E.replace index model.expr (E.Leaf buttonId)
+                Var buttonId _ -> E.replace index model.expr (E.Leaf buttonId)
+                Meta buttonId _ -> E.replace index model.expr (E.Leaf buttonId)
+    in { model | expr <- expr 
+       , index <- index + 1 }
+
+-- Pre: assumes buttonId refers to the id of a variable button
+-- Post: updates model based on the button clicked
+funUpdate button model =
+    let index = model.index -- index of expression to replace value
+        funId = case button of
+                Fun buttonId _ -> buttonId
+                Var buttonId _ -> buttonId
+                Meta buttonId _ -> buttonId
+        def = if | funId == 4 || funId == 5 -> E.Node funId [E.Empty]
+                 | otherwise -> E.Node funId [E.Empty, E.Empty]
+        expr = E.replaceNode index model.expr funId def -- replaces directly if possible
+    in { model | expr <- expr 
+       , index <- index + 1 }
+
+metaUpdate button model = model
 
 -- Pre: assumes that length of model.values < 7
-addUpdate model = 
-    let values = case model.tempValue of
-            V.Abyss -> model.values-- ++ [(head (drop (length model.values) C.vectors))]
-            _ -> model.values ++ [model.tempValue]
-        varId = (length values) - 1
-        expressions = case model.tempValue of
-            V.Abyss -> model.expressions
-            _ -> model.expressions ++ [model.tempExp]
-    in if | (length model.values) == (length values) -> model
-          | otherwise ->  varUpdate varId { model | values <- values
-                       , selected <- []
-                       , notAllowed <- []
-                       , expressions <- expressions 
-                       , geomSelected <- 0 }
-
--- Pre: assumes that length of model.values > 0
-minusUpdate model = 
-    let varId = (length model.values) - 1 --get the varId to be removed
-        expressions = filter (hasNot varId) (take varId model.expressions)
-        values = take ((length model.values) - 1) model.values
-        selected = filter (\var -> not (var == varId)) model.selected  --remove varId from selected
-    in geomUpdate 0 { model | values <- values
-                    , expressions <- expressions 
-                    , selected <- selected
-                    , notAllowed <- []}
+--addUpdate model = 
+--    let values = case model.tempValue of
+--            V.Abyss -> model.values-- ++ [(head (drop (length model.values) C.values))]
+--            _ -> model.values ++ [model.tempValue]
+--        varId = (length values) - 1
+--        expressions = case model.tempValue of
+--            V.Abyss -> model.expressions
+--            _ -> model.expressions ++ [model.tempExp]
+--    in if | (length model.values) == (length values) -> model
+--          | otherwise ->  varUpdate varId { model | values <- values
+--                       , varQueue <- []
+--                       , notAllowed <- []
+--                       , expressions <- expressions 
+--                       , funQueue <- 0 }
+--
+---- Pre: assumes that length of model.values > 0
+--minusUpdate model = 
+--    let varId = (length model.values) - 1 --get the varId to be removed
+--        expressions = filter (hasNot varId) (take varId model.expressions)
+--        values = take ((length model.values) - 1) model.values
+--        varQueue = filter (\var -> not (var == varId)) model.varQueue  --remove varId from varQueue
+--    in funUpdate 0 { model | values <- values
+--                    , expressions <- expressions 
+--                    , varQueue <- varQueue
+--                    , notAllowed <- []}
                     
 hasNot var lst = 
     case lst of 
@@ -140,66 +142,46 @@ hasNotHelper var lst =
                  then False 
                  else (hasNotHelper var more)
     
--- Pre: Assumes that values / selected represent same data (must have same length)
+-- Pre: Assumes that values / varQueue represent same data (must have same length)
 -- Post: Returns a pair: (value of evaluating a geometry, expression of eval)
-getTemp geomId values selected =
+getTemp funId values varQueue =
     let len = length values 
-    in if | len == 0 -> (V.Abyss, geomId::selected)
-          | geomId == 0 -> (V.eval (V.Atom (head values)), 0::[last selected])
-          | geomId == 1 -> (V.eval (V.Span values), 1::selected) 
-          | geomId == 2 && len > 1 -> (V.eval (V.Project (head values) (head (tail values))), 2::selected)
-          | geomId == 3 && len > 1 -> (V.eval (V.Reject (head values) (head (tail values))), 3::selected)
-          | otherwise -> (V.Abyss, geomId::selected)
-
+    in if | len == 0 -> (V.Abyss, funId::varQueue)
+          | funId == 0 -> (V.eval (V.Atom (head values)), 0::[last varQueue])
+          | funId == 1 -> (V.eval (V.Span values), 1::varQueue) 
+          | funId == 2 && len > 1 -> (V.eval (V.Project (head values) (head (tail values))), 2::varQueue)
+          | funId == 3 && len > 1 -> (V.eval (V.Reject (head values) (head (tail values))), 3::varQueue)
+          | otherwise -> (V.Abyss, funId::varQueue)
 
 -- Render
 render (w, h) model = 
-    let varIndexes = [0 .. ((length model.values) - 1)]
-        funIndexes = [0 .. ((length C.funs) - 1)]
-        customIndexes = [0 .. ((length C.custom) - 1)]
-        varButtons = buildButtons varInput' varIndexes (sort model.selected) (sort model.notAllowed) 
-        geomButtons = buildButtons geomInput' funIndexes [model.geomSelected] []
-        custButtons = buildButtons customInput' customIndexes [] []
+    let funButtons  = (buildButtons 0 model.funs)
+        varButtons  = (buildButtons 1 model.vars)
+        metaButtons = (buildButtons 2 model.meta)
         spacers = map (\i -> spacer 24 1) [1 .. (7 - (length varButtons))]  --pull out seven
-        expression = getDef model.tempExp
-        varDefinitions = defsFromExps (model.expressions++[model.tempExp])
-        funDefinition = defFromFun model.geomSelected
+        expression = E.toString C.funs C.vars model.expr
+  --    varDefinitions = defsFromExps (model.expressions++[model.tempExp])
+  --    funDefinition = defFromFun model.funQueue
     in container w h (topLeftAt (relative 0.2) (relative 0.2)) (flow down 
         [ (leftAligned (T.height 30 (monospace (toText "visual-algebra"))))
         , (leftAligned (T.height 10 (monospace (toText "v0.01 E-5 alpha"))))
         , spacer 10 10
         , (leftAligned (T.height 30 (monospace (toText expression))))
         , spacer 10 10
-        , width 250 (flow right (varButtons ++ spacers ++ custButtons))
-        , spacer 10 5  
-        , flow down varDefinitions
-        , spacer 10 10 
-        , width 250 (flow right geomButtons)
-        , spacer 10 5 
-        , width 250 funDefinition
-        --, width 250 (asText model)
+        , width 250 (flow right varButtons)
+        , height 90 (width 250 (flow right funButtons))
+        , height 90 (width 250 (flow right metaButtons))
+   --   , width 250 (flow down varDefinitions)
+   --   , width 250 funDefinition
+        , width 250 (asText model)
      ])
 
 -- Signals
---signals = lift2 (\a b c-> {geom=a, vars=[b], custom=}) geomInput.signal (foldp swap [0] vecInput.signal)
-signals = merges [variable, geom, custom]
-geom = lift (\v -> (v,"geom")) geomInput.signal 
-variable = lift (\v -> (v,"variable")) varInput.signal 
-custom = lift (\v -> (v,"custom")) customInput.signal 
+signals : Signal (Action, Button)
+signals = inputs.signal
 
--- Inputs
-geomInput : Input Int
-geomInput = input 0
-
-varInput : Input Int
-varInput = input 0
-                
-customInput : Input Int
-customInput = input 0
-
-geomInput' = {geomInput | name = "geom"}
-varInput' = {varInput | name = "vector"}
-customInput' = {customInput | name = "custom"}
+inputs : Input (Action, Button)
+inputs = input (None, Var 0 Available)
 
 -- Pre: assumes new is a number and old a number list
 -- Post: returns a list, which swaps the state as to whether old contained new
@@ -212,34 +194,31 @@ toggleList new old =
          then more
          else one::(toggleList new more)
 
---change variable names ugh sigh ugh
-buildButtons inputType buttonIds chosen notAvail = 
-    case buttonIds of
-    [] -> []
-    b::bs -> 
-        let choice = if (length chosen) > 0 then head chosen else -1
-            notA = if (length notAvail) > 0 then head notAvail else -1
-            style  = if | choice == b -> 1 -- chosen button, dark style
-                        | notA == b -> 2   -- chosen but not available, light style
-                        | otherwise -> 0   -- not chosen, no styling
-            chosenTail = if choice == b then tail chosen else chosen
-            notATail = if notA == b then tail notAvail else notAvail
-        in (getButton style inputType b)::(buildButtons inputType bs chosenTail notATail)
+-- maybe return an array instead then list
+buildButtons : Int -> A.Array Int -> [Element]
+buildButtons buttonType buttonArr =
+    A.toList (A.indexedMap (\i state -> getButton buttonType state i) buttonArr)
            
-getButton buttonType inputType index =
-    let name = if | inputType.name == "vector" -> head (drop index C.vars) 
-                  | inputType.name == "geom" ->  head (drop index C.funs)
-                  | inputType.name == "custom" -> head (drop index C.custom)
-        styledText = if | buttonType == 1 -> line Under (toText name)
-                        | otherwise -> toText name
-        element = leftAligned (T.height 15 (monospace styledText))
+--implement hoverable?
+getButton : Int -> Int -> Int -> Element
+getButton buttonType buttonState index =
+    if buttonState == 3 then empty else  -- KINDA HACKY, these buttons not drawn
+    let name = if | buttonType == 0 -> head (drop index C.funs) -- function
+                  | buttonType == 1 -> head (drop index C.vars) -- var
+                  | buttonType == 2 -> head (drop index C.meta) -- meta 
+        element = leftAligned (T.height 15 (monospace (toText name)))
         w = widthOf element
         h = heightOf element
         linked =  link "#" (container (w + 15) (h + 10) middle element)
-        highlighted = if | buttonType == 1 ->  color (rgba 0 0 0 0.2) linked 
-                         | buttonType == 2 -> color (rgba 0 0 0 0.1) linked
-                         | otherwise -> linked
-    in clickable inputType.handle index highlighted
+        sigState = if buttonState == 0 || buttonState == 1 then Available else Hidden -- 3 is considered above
+        sigButton = if | buttonType == 0 -> Fun  index sigState  
+                       | buttonType == 1 -> Var  index sigState  
+                       | buttonType == 2 -> Meta index sigState  
+        styled = if | buttonState == 0 -> linked
+                    | buttonState == 1 -> (color (rgba 0 0 0 0.1) linked)
+                    | otherwise -> opacity 0.5 linked
+        b = clickable inputs.handle (Click, sigButton) styled
+    in hoverable inputs.handle (\bool -> if bool then (Hover, sigButton) else (None, sigButton)) b
 
 defsFromExps : [[Int]] -> [Element]
 defsFromExps exps =
@@ -266,11 +245,7 @@ getDef exp =
     let funId = head exp
         otherVars = map (\i -> head (drop i C.vars)) (tail exp)
         len = length otherVars
-        funName = 
-            if | funId == 0 -> "atom"
-               | funId == 1 -> "span"
-               | funId == 2 -> "projection"
-               | funId == 3 -> "rejection"
+        funName = head (drop funId C.funs) 
         prep = " of "
         inBetw = 
             if | (funId == 0 || funId == 1) && len > 0 -> concat (intersperse ", " otherVars)

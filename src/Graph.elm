@@ -4,10 +4,28 @@ import Window.dimensions
 import Mouse.position
 import Vector as V
 
+{-
+    TODO:
+    
+    grammar:
+
+-}
+
+
+main = render <~ Window.dimensions ~ (foldp update model signals)
+
 -- Model
 model = { basis  = [(0,40),(0,50),(50,0)]
         , target = "" 
         , units = 1
+        , values = 
+         [ V.Vector 1 1 1
+         , V.Vector 2 1 2
+         , V.Vector 3 3 0
+         , V.Vector 1 0 2 ]
+        , selected = [0]
+        , tempValue = V.Vector 1 1 1
+        , tempExp = [0, 0]
         , time = 0
         , velocity = pi/20 }
 
@@ -16,22 +34,7 @@ update signals model =
     let pressed = updates.a
         mouse = updates.b       
         window = updates.c
-        delta = updates.f - model.time
-        selected = updates.g
-        vs = map (\i -> head (drop i vectors)) selected.vectors
-        geoms = let index = (head selected.geoms)
-                    name = head (drop index geomNames)
-                    def = map (\v -> V.Atom v) vs 
-                in case name of
-                    "atom" -> def
-                    "span" -> [V.Span vs] ++ def
-                    "project" -> if (length vs) == 2
-                                 then (V.Project (head vs) (head (tail vs)))::(head def)::[(head (tail def))]
-                                 else [V.Atom V.Abyss]
-                    "reject" -> if (length vs) == 2
-                                 then (V.Reject (head vs) (head (tail vs)))::(head def)::[(head (tail def))]
-                                 else [V.Atom V.Abyss]
-                    _ -> [V.Atom V.Abyss]
+        delta = updates.d
         x' = toFloat ((fst mouse) - (div (fst window) 2))
         y' = toFloat (-(snd mouse) + (div (snd window) 2))
         b1' = head model.basis 
@@ -53,33 +56,25 @@ update signals model =
         b3 = if | target == "b3" -> (x',y') 
                 | target == "" -> V.rotate' b3' (model.velocity * delta / 1000)
                 | otherwise -> b3'
-        
-        basis = [b1,b2,b3]
-    in {basis=basis, geoms=geoms,velocity=model.velocity, units=model.units, time=updates.f, target=target} 
+    in { model | basis <- [b1,b2,b3]
+               , target <- target }
 
 
 -- Render
 render w h model = 
-    lek 
-        mouse = updates.b       
-        window = updates.c
-        selected = updates.g
-        width = toFloat (fst window)
-        height = toFloat (snd window)
-        basis = model.basis
+    let basis = model.basis
         axis = [ (V.Atom(V.Vector 1 0 0), (greyscale 0.3))
                , (V.Atom(V.Vector 0 1 0), (greyscale 0.3))
                , (V.Atom(V.Vector 0 0 1), (greyscale 0.3))
                ]
-        --geoms = zip model.geoms colors
-        geoms = map (\g -> (g, blue)) model.geoms 
+        spaces = filter (\i -> head (drop i model.values)) model.selected
+        colored = map (\s -> (s, blue)) spaces
         -- sortGeoms when geoms change
-        allGeoms = V.sortGeoms (axis ++ geoms)
-        spaces = map (\(geom, col) -> (V.draw basis model.units col (V.eval geom))) allGeoms
+        forms = map (\(s, col) -> (V.draw basis model.units col s)) spaces
         grid = V.drawGrid basis model.units
         style = (\str -> (leftAligned (T.height 12 (monospace (toText str)))))
-        moves = selected.vectors 
-            |> map (\i -> head (drop i vectors)) --map to Vectors
+        moves = model.selected
+            |> map (\i -> head (drop i model.values)) --map to Vectors
             |> map (\v -> case v of
                           V.Vector a b c -> [a,b,c]) --map to list of components 
             |> map (\v -> foldr V.add' (0,0) (zipWith (\c b -> V.scale' b c) v basis)) --zip to pair of coord
@@ -97,8 +92,8 @@ render w h model =
 --durp = lift5 (\a b c d e ->{a=a,b=b,c=c,d=d,e=e}) Mouse.isDown Mouse.position Window.dimensions randColors (fps frameSpeed)
 --time = sampleOn durp (every millisecond)
 --
-----signals : Signal {a:Bool,b:(Int,Int),c:(Int,Int),d:[Color],e:Time, f:Time}
---signals = lift7 (\a b c d e f g->{a=a,b=b,c=c,d=d,e=e,f=f,g=g}) Mouse.isDown Mouse.position Window.dimensions randColors (fps 20) time selected
+signals : Signal {a:Bool,b:(Int,Int),c:(Int,Int),d:Time}
+signals = lift4 (\a b c d->{a=a,b=b,c=c,d=d}) Mouse.isDown Mouse.position Window.dimensions (fps 20)
 --
 --
 --randColorSeed = Random.float (constant 4)

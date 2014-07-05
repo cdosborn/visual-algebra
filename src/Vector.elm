@@ -10,12 +10,16 @@ import Regex (find, regex, AtMost)
     getBasis needs a helper, shouldn't need to pass [] as an arg
 -}
 
-data Space = Abyss | Vector Float Float Float | Line Space | Plane [Space] | Volume 
-data Geom = Atom Space 
-         | Span [Space]
-         | Perpendicular [Space]
-         | Project  Space Space 
-         | Reject  Space Space 
+data Space = Abyss 
+        | Vector Float Float Float 
+        | Line Space 
+        | Plane [Space]
+        | Volume 
+        | Atom Space 
+        | Span [Space]
+        | Perpendicular [Space]
+        | Project Space Space 
+        | Reject Space Space 
 -------- | Intersection [Vector]
 -------- | Sum [Vector]
 -------- | Difference [Vector]
@@ -23,12 +27,30 @@ data Geom = Atom Space
 
 -- Pre: takes list of spaces, ignoring non-vector spaces
 -- Post: Returns the space represented by the span of vector spaces
-eval : Geom -> Space 
+eval : Space -> Space 
 eval exp = case exp of
-            Atom a -> a
+            Vector a b c -> exp
+            Line s -> case (eval s) of
+                Vector a b c -> Line (Vector a b c)            
+                _ -> Abyss
+    ----    Plane vs -> case (eval s1) of
+    ----        Vector a b c -> (case (eval s2) of
+    ----        Vector d e f -> Plane (Vector a b c) (Vector d e f)
+    ----        _ -> Abyss)
+    ----        _ -> Abyss
+            Atom s -> eval s
             Span spaces -> evalSpan spaces
-            Project a b -> a `project` b
-            Reject a b -> a `reject` b
+            Project s1 s2 -> case (eval s1) of
+                Vector a b c -> (case (eval s2) of
+                Vector d e f -> (Vector a b c) `project` (Vector d e f)
+                _ -> Abyss)
+                _ -> Abyss
+            Reject s1 s2 -> case (eval s1) of
+                Vector a b c -> (case (eval s2) of
+                Vector d e f -> (Vector a b c) `reject` (Vector d e f)
+                _ -> Abyss)
+                _ -> Abyss
+
             _ -> Abyss
             --Span x::xs -> independent 
             --Span (Vector a b c) (Plane (Vector d e f) (Vector g h i)) -> 
@@ -57,7 +79,7 @@ evalSpan spaces =
 
 -- Pre: Assumes list of expressions
 -- Post: Sorts vectors by z depth, other spaces are infront
-sortGeoms : [(Geom, Color)] -> [(Geom, Color)]
+sortGeoms : [(Space, Color)] -> [(Space, Color)]
 sortGeoms geoms =
     sortWith (\(g1,c1) (g2,c2) -> case g1 of
         Atom (Vector a b c) -> (case g2 of
