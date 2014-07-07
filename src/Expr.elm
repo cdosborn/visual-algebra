@@ -3,6 +3,10 @@ module Expr where
 {-
     TODO:
     factor out replace****
+    replace Node with Unary Int Expr, and Duo Int Expr Expr
+        this is important because in setNodeExpr, replacing
+        a subtract(a,b) with unit, yields unit(a,b) which
+        is impossible
     setNodeExpr should throw error, see comment
 -}
 

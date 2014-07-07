@@ -13,12 +13,11 @@ import Expr as E
 {-
     TODO:
     
-    FIX TEMPORARY
-
     bring constants to module? 
     extract similar code in update methods (eval geom part) (eval geom part)
     pull out all 7s in render, add to Constants
     getButton skips buttonStates of 3 kinda hacky
+    historyLimit cannot be 0, undo/redo get messed up
     
     grammar:
     exprs : expressions
@@ -32,18 +31,19 @@ import Expr as E
 
 -}
 
-main = render <~ Window.dimensions ~ (foldp update model signals)
+main = render <~ Window.dimensions ~ (foldp update C.model signals)
 
--- Model
-model = { exprs = C.expressions -- [[functionID, varID,..]], list of var expr
-        , values = C.values -- list of vectors behind all expressions
-        , temp = [] -- [[functionID, varID , ...]]
-        , funs = A.repeat (length C.funs) 0
-        , vars = A.repeat (length C.vars) 0 --  transparent state
-        , meta = A.repeat (length C.meta) 2 -- transparent state
-        , index = 0 -- index of expr
-        , expr = E.Empty 
-        }
+-- Model -- defined in Constants
+--model = { exprs = C.expressions -- [[functionID, varID,..]], list of var expr
+--        , values = C.values -- list of vectors behind all expressions
+--        , temp = [] -- [[functionID, varID , ...]]
+--        , funs = A.repeat (length C.funs) 0
+--        , vars = A.repeat (length C.vars) 0 --  transparent state
+--        , meta = A.repeat (length C.meta) 2 -- transparent state
+--        , index = 0 -- index of expr
+--        , expr = E.Node 1 ([E.Leaf 0,E.Leaf 1])--E.Empty 
+--        , history = [] -- list of buttons pressed
+--        }
 
 data Action = Click | Hover | None
 data State = Available | Hidden
@@ -64,10 +64,13 @@ update (action, button) model =
         Fun  index _ -> { model | funs <- A.set index 1 model.funs }
         Meta index _ -> { model | meta <- A.set index 1 model.meta }
     Click -> 
-        case button of
-        Var  _ _ -> varUpdate  button model
-        Fun  _ _ -> funUpdate  button model
-        Meta _ _ -> metaUpdate button model
+        let m = { model | history <- button::model.history 
+                , meta <- A.set 1 0 model.meta}
+        in 
+            case button of
+            Var  index _ -> varUpdate  index m
+            Fun  index _ -> funUpdate  index m
+            Meta index _ -> metaUpdate index m
     None -> 
         case button of 
         Var  index _ -> { model | vars <- A.set index 0 model.vars }
@@ -78,30 +81,116 @@ update (action, button) model =
 
 -- Pre: assumes buttonId refers to the id of a variable button
 -- Post: updates model based on the button clicked
-varUpdate button model =
+varUpdate varId model =
     let index = model.index -- index of expression to replace value
-        expr = case button of 
-                Fun buttonId _ -> E.replace index model.expr (E.Leaf buttonId)
-                Var buttonId _ -> E.replace index model.expr (E.Leaf buttonId)
-                Meta buttonId _ -> E.replace index model.expr (E.Leaf buttonId)
+        expr =  E.replace index model.expr (E.Leaf varId)
     in { model | expr <- expr 
        , index <- index + 1 }
 
 -- Pre: assumes buttonId refers to the id of a variable button
 -- Post: updates model based on the button clicked
-funUpdate button model =
+funUpdate funId model =
     let index = model.index -- index of expression to replace value
-        funId = case button of
-                Fun buttonId _ -> buttonId
-                Var buttonId _ -> buttonId
-                Meta buttonId _ -> buttonId
         def = if | funId == 4 || funId == 5 -> E.Node funId [E.Empty]
                  | otherwise -> E.Node funId [E.Empty, E.Empty]
         expr = E.replaceNode index model.expr funId def -- replaces directly if possible
     in { model | expr <- expr 
        , index <- index + 1 }
 
-metaUpdate button model = model
+metaUpdate metaId model =
+  if | metaId == 1 || metaId == 2 -> onUndo model
+     | otherwise -> model
+ 
+-- Pre: assumes model.history contains at least [undoButton, aChange]
+-- Post: resets the model to previous state
+onUndo model =
+    let limit = historyLength model.history
+        dif = limit - C.historyLimit
+        (history, base') = 
+            if dif > 0 -- limit is larger
+            then (take (C.historyLimit + 1) model.history, getChanges (drop (C.historyLimit + 1) model.history))
+            else (model.history, [])
+        meta' =  if showUndo history then model.meta else A.set 1 2 model.meta 
+        meta'' = if showRedo history then A.set 2 0 meta' else A.set 2 2 meta'
+        base = base' ++ model.base
+        changes = getChanges (history ++ base) -- reduces history into correct statee
+        clickList = repeat (length (changes)) Click
+        args = zip clickList changes
+        m = foldr (\arg modl -> update arg modl) C.model args
+    in { m | history <- history 
+       , base <- base 
+       , meta <- meta'' }
+    --_ -> fail otherwise history should always have 2 on undo
+
+-- Post: returns length of history, minus initial consecutive undos/redos
+historyLength : [Button] -> Int
+historyLength history =
+    case history of
+    (Meta 1 _)::more -> historyLength more
+    (Meta 2 _)::more -> historyLength more    
+    _ -> length history
+
+showUndo : [Button] -> Bool
+showUndo history = showUndoAux history 0
+showUndoAux history num =
+    case history of
+    (Meta 1 _)::more-> showUndoAux more (num + 1) 
+    (Meta 2 _)::more->  showUndoAux more (num - 1) 
+    _ -> num < C.historyLimit && num < (length history)
+
+
+showRedo : [Button] -> Bool
+showRedo history = showRedoAux history 0
+showRedoAux history index =
+    case history of
+    (Meta 1 _)::more-> index == 0 || (showRedoAux more (index - 1))
+    (Meta 2 _)::more-> showRedoAux more (index + 1)
+    _ -> False
+
+-- Post: irreversibly reduces the history by removing oldest undo/redo
+--       expression to what is currently intended, includes count of undos removed                  
+compressHistory : [Button] -> [Button]
+compressHistory history = compressAux history [] 0 0
+compressAux history solution undos redos =
+    if history == [] then history else 
+    let end = last history 
+        rest = take (length history - 1) history
+    in case end of
+        Meta 1 _ -> compressAux rest solution (undos + 1) redos 
+        Meta 2 _ -> compressAux rest solution undos (redos + 1)
+        _ -> -- fun or var button
+            if undos == 0 -- havn't reached undo or redo yet
+            then compressAux rest (end::solution) 0 0
+            else history ++ (drop (undos - redos) solution)
+
+---- Pre: assumes model.future contains at least [futButton]
+--onRedo model =
+--    case model.history of 
+--    redo::changes -> --first argument alwayws redo button
+--        let history = changes  --hist doesn't include instruction to undo
+--            arg = (Click, head model.future)
+--            m = update arg { model | history <- history }
+--        in { m | future <- tail model.future 
+--           , history <- model.history }
+--    --_ -> model -- throw error
+
+-- Pre: in history of buttons, redos always precede undos
+-- Post: filters every button pressed, reducing a list of undos,redos,etc
+--       into actual history
+getChanges : [Button] -> [Button]
+getChanges history = getChangesAux history [] 0
+getChangesAux history changes undo =
+    case history of
+    [] -> changes
+    (Meta 1 _)::more -> -- undo
+        getChangesAux more changes (undo + 1)
+    _ -> 
+        if undo > 0 
+        then getChangesAux (drop undo history) changes 0
+        else  -- if no undos then accumulate redos/funs/vars
+            case history of 
+            (Meta 2 _)::more -> getChangesAux more changes (undo - 1)
+            other::more -> getChangesAux more (changes++[other]) 0
 
 -- Pre: assumes that length of model.values < 7
 --addUpdate model = 
@@ -166,14 +255,13 @@ render (w, h) model =
         [ (leftAligned (T.height 30 (monospace (toText "visual-algebra"))))
         , (leftAligned (T.height 10 (monospace (toText "v0.01 E-5 alpha"))))
         , spacer 10 10
-        , (leftAligned (T.height 30 (monospace (toText expression))))
+        , width 700 (leftAligned (T.height 30 (monospace (toText expression))))
         , spacer 10 10
         , width 250 (flow right varButtons)
         , height 90 (width 250 (flow right funButtons))
         , height 90 (width 250 (flow right metaButtons))
    --   , width 250 (flow down varDefinitions)
    --   , width 250 funDefinition
-        , width 250 (asText model)
      ])
 
 -- Signals

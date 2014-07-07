@@ -1,12 +1,19 @@
 module Graph where
 
-import Window.dimensions
-import Mouse.position
+import Window
+import Mouse 
+import Text as T
+
+import Constants as C
+import Expr as E
 import Vector as V
 
 {-
     TODO:
     
+    conversion fun, expr -> space    
+    eval converted space
+    update draw
     grammar:
 
 -}
@@ -29,12 +36,22 @@ model = { basis  = [(0,40),(0,50),(50,0)]
         , time = 0
         , velocity = pi/20 }
 
+--model = { exprs = C.expressions -- [[functionID, varID,..]], list of var expr
+--        , values = C.values -- list of vectors behind all expressions
+--        , temp = [] -- [[functionID, varID , ...]]
+--        , funs = A.repeat (length C.funs) 0
+--        , vars = A.repeat (length C.vars) 0 --  transparent state
+--        , meta = A.repeat (length C.meta) 2 -- transparent state
+--        , index = 0 -- index of expr
+--        , expr = E.Empty 
+--        }
+
 -- Update
 update signals model =
-    let pressed = updates.a
-        mouse = updates.b       
-        window = updates.c
-        delta = updates.d
+    let pressed = signals.a
+        mouse = signals.b       
+        window = signals.c
+        delta = signals.d
         x' = toFloat ((fst mouse) - (div (fst window) 2))
         y' = toFloat (-(snd mouse) + (div (snd window) 2))
         b1' = head model.basis 
@@ -61,13 +78,13 @@ update signals model =
 
 
 -- Render
-render w h model = 
+render (w, h) model = 
     let basis = model.basis
         axis = [ (V.Atom(V.Vector 1 0 0), (greyscale 0.3))
                , (V.Atom(V.Vector 0 1 0), (greyscale 0.3))
                , (V.Atom(V.Vector 0 0 1), (greyscale 0.3))
                ]
-        spaces = filter (\i -> head (drop i model.values)) model.selected
+        spaces = model.values ++ expr
         colored = map (\s -> (s, blue)) spaces
         -- sortGeoms when geoms change
         forms = map (\(s, col) -> (V.draw basis model.units col s)) spaces
@@ -78,13 +95,12 @@ render w h model =
             |> map (\v -> case v of
                           V.Vector a b c -> [a,b,c]) --map to list of components 
             |> map (\v -> foldr V.add' (0,0) (zipWith (\c b -> V.scale' b c) v basis)) --zip to pair of coord
-        textForms = map (\i -> toForm (style (head (drop i vecNames)))) selected.vectors
+        textForms = map (\i -> toForm (style (head (drop i C.vars)))) model.selected
         shiftThem = (\(x,y) form -> move (x, y + 13) form)
         texts =  zipWith  shiftThem moves textForms
         allForms = spaces ++ grid ++ texts
     in layers [ collage (round width) (round height) allForms
               , asText model
-              , ui window selected
               ]
 
 -- Signals
