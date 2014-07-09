@@ -1,6 +1,7 @@
 import Vector as V
 import Constants as C
 import Expr as E
+import Ui as U
 import ElmTest.Assertion (assert, assertEqual) 
 import ElmTest.Test (suite, test, Test)
 import ElmTest.Runner.Element (runDisplay)
@@ -13,7 +14,7 @@ import ElmTest.Runner.Element (runDisplay)
 -}
 
 main : Element
-main = runDisplay tests2
+main = runDisplay (suite "Test suite for vector library in visual-algebra project" [tests, tests2, tests3])
 
 tests : Test
 tests = suite "Three dimensional vector functions" 
@@ -36,6 +37,13 @@ tests2 = suite "Expression methods"
       , test "generates correct toString" toString1
       , test "mapAndFoldUntil" mapAndFoldUntil1
       , test "mapAndFoldUntil" mapAndFoldUntil2 ]
+
+
+tests3 = suite "Ui methods" 
+    [ test "basic" compressHistory1 
+    , test "basic" compressHistory2 
+    , test "basic" historyLength1  
+    , test "basic" historyLength2 ] 
 
 independent1 = assert (False == (V.independent [V.Vector 1 1 1, V.Vector 2 2 2]))
 independent2 = assert (False == (V.independent [V.Vector 3 3 3,V.Vector 3 3 3]))
@@ -76,5 +84,18 @@ mapAndFoldUntil2 = assertEqual
 replacePosWithInt1 = assertEqual (E.Node 0 [E.Leaf 0, E.Leaf 5])
                                  (E.replacePosWithInt 2 (E.Node 0 [E.Leaf 0, E.Leaf 7]) 5)
 
-toString1 = assertEqual ""
+toString1 = assertEqual "add( subtract( a ), project(  ), add( a, f ) )"
                         (E.toString C.funs C.vars (E.Node 0 [E.Node 1 [E.Leaf 0], E.Node 2 [], E.Node 0 [E.Leaf 0, E.Leaf 5]]))
+
+compressHistory1 = assertEqual ([], [U.Fun 0 U.Available])
+                               (U.compressHistory [U.Fun 0 U.Available])
+
+compressHistory2 = assertEqual ([U.Fun 0 U.Available, U.Fun 0 U.Available], [])
+               (U.compressHistory [U.Fun 0 U.Available, U.Fun 0 U.Available, U.Meta 1 U.Available, U.Fun 0 U.Available])
+
+historyLength1 = assertEqual 2 
+                             (U.historyLength [U.Fun 0 U.Available, U.Fun 0 U.Available, U.Meta 1 U.Available])
+                              
+historyLength2 = assertEqual 4
+                     (U.historyLength [U.Fun 0 U.Available, U.Fun 0 U.Available, U.Meta 1 U.Available, U.Fun 0 U.Available])
+
