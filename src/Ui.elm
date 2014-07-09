@@ -13,41 +13,25 @@ import Expr as E
 {-
     TODO:
     
-    bring constants to module? 
     extract similar code in update methods (eval geom part) (eval geom part)
     pull out all 7s in render, add to Constants
     getButton skips buttonStates of 3 kinda hacky
-    historyLimit cannot be 0, undo/redo get messed up
+    historyLimit cannot be 0, undo/redo get messed up (undo needs to be fixed should be simple)
     
     grammar:
-    exprs : expressions
-    temp(Value|Exp) : represents the evaluated geometry before being stored as a value
-    *Update : helper methods which handle * type of input (variable button/plus button)
-    buttonAction : hover/click ->  0/1
-    buttonType : fun/var/meta -> 0/1/2
-    buttonState : rest/hover/clicked/hid : 0/1/2/3 
 
     assumptions:
-
 -}
 
-main = render <~ Window.dimensions ~ (foldp update C.model signals)
+--main = render <~ Window.dimensions ~ (foldp update C.model signals)
 
--- Model -- defined in Constants
---model = { exprs = C.expressions -- [[functionID, varID,..]], list of var expr
---        , values = C.values -- list of vectors behind all expressions
---        , temp = [] -- [[functionID, varID , ...]]
---        , funs = A.repeat (length C.funs) 0
---        , vars = A.repeat (length C.vars) 0 --  transparent state
---        , meta = A.repeat (length C.meta) 2 -- transparent state
---        , index = 0 -- index of expr
---        , expr = E.Node 1 ([E.Leaf 0,E.Leaf 1])--E.Empty 
---        , history = [] -- list of buttons pressed
---        }
+-- Model
+--defined in Constants as C.model
 
 data Action = Click | Hover | None
 data State = Available | Hidden
 data Button = Fun Int State | Var Int State | Meta Int State
+
 -- Update
 -- all button interactions (clicks/hovers) constitute the entire events sent to UI
 -- update redirects model updates based on type of update (fun/variable/meta)

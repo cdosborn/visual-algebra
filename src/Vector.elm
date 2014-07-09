@@ -1,4 +1,5 @@
 module Vector where
+
 import Regex (find, regex, AtMost)
 
 {-
