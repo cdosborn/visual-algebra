@@ -8,6 +8,10 @@ import Graph
 import Debug (..)
 
 {-
+    Philosophy:
+    Each module shares the same model but defines (update,render,signals) based on 
+    what it needs from the model.
+
     TODO:
     evalSpan handles span of no arguments should just return an abyss
     handling functions with incorrect arguments..
@@ -16,9 +20,6 @@ import Debug (..)
     color-coordination between vector and button highlight
     2d/3d mode with or w/o rotation
 
-    Philosophy:
-    Each main module defines a model and accompanying methods (update,render,signals) based on that model.
-    These models provide an interface for a record that can be passed to them. 
 -}
 
 main = render <~ Window.dimensions ~ state
