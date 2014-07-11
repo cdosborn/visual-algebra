@@ -23,43 +23,43 @@ import Expr as E
     assumptions:
 -}
 
---main = render <~ Window.dimensions ~ (foldp update C.model signals)
+main = render <~ Window.dimensions ~ state
+state = foldp update C.model signals
+
 
 -- Model
 --defined in Constants as C.model
 
-data Action = Click | Hover | None
-data State = Available | Hidden
-data Button = Fun Int State | Var Int State | Meta Int State
 
 -- Update
 -- all button interactions (clicks/hovers) constitute the entire events sent to UI
 -- update redirects model updates based on type of update (fun/variable/meta)
+update : (C.Action, C.Button) -> C.Model -> C.Model
 update (action, button) model =
     case button of
-    Fun  _ Hidden -> model
-    Var  _ Hidden -> model
-    Meta _ Hidden -> model
+    C.Fun  _ (C.Hidden) -> model
+    C.Var  _ (C.Hidden) -> model
+    C.Meta _ (C.Hidden) -> model
     _ -> 
     (case action of 
-    Hover ->
+    C.Hover ->
         case button of 
-        Var  index _ -> { model | vars <- A.set index 1 model.vars }
-        Fun  index _ -> { model | funs <- A.set index 1 model.funs }
-        Meta index _ -> { model | meta <- A.set index 1 model.meta }
-    Click -> 
+        C.Var  index _ -> { model | vars <- A.set index 1 model.vars }
+        C.Fun  index _ -> { model | funs <- A.set index 1 model.funs }
+        C.Meta index _ -> { model | meta <- A.set index 1 model.meta }
+    C.Click -> 
         let m = { model | history <- button::model.history 
                 , meta <- A.set 1 0 model.meta}
         in 
             case button of
-            Var  index _ -> varUpdate  index m
-            Fun  index _ -> funUpdate  index m
-            Meta index _ -> metaUpdate index m
-    None -> 
+            C.Var  index _ -> varUpdate  index m
+            C.Fun  index _ -> funUpdate  index m
+            C.Meta index _ -> metaUpdate index m
+    C.None -> 
         case button of 
-        Var  index _ -> { model | vars <- A.set index 0 model.vars }
-        Fun  index _ -> { model | funs <- A.set index 0 model.funs }
-        Meta index _ -> { model | meta <- A.set index 0 model.meta })
+        C.Var  index _ -> { model | vars <- A.set index 0 model.vars }
+        C.Fun  index _ -> { model | funs <- A.set index 0 model.funs }
+        C.Meta index _ -> { model | meta <- A.set index 0 model.meta })
 
 
 
@@ -98,50 +98,53 @@ onUndo model =
         meta'' = if showRedo history then A.set 2 0 meta' else A.set 2 2 meta'
         base = base' ++ model.base
         changes = getChanges (history ++ base) -- reduces history into correct statee
-        clickList = repeat (length (changes)) Click
+        clickList = repeat (length (changes)) C.Click
         args = zip clickList changes
         m = foldr (\arg modl -> update arg modl) C.model args
     in { m | history <- history 
        , base <- base 
-       , meta <- meta'' }
+       , meta <- meta'' 
+       , basis <- model.basis
+       , target <- model.target
+       , units <- model.units}
     --_ -> fail otherwise history should always have 2 on undo
 
 -- Post: returns length of history, minus initial consecutive undos/redos
-historyLength : [Button] -> Int
+historyLength : [C.Button] -> Int
 historyLength history =
     case history of
-    (Meta 1 _)::more -> historyLength more
-    (Meta 2 _)::more -> historyLength more    
+    (C.Meta 1 _)::more -> historyLength more
+    (C.Meta 2 _)::more -> historyLength more    
     _ -> length history
 
-showUndo : [Button] -> Bool
+showUndo : [C.Button] -> Bool
 showUndo history = showUndoAux history 0
 showUndoAux history num =
     case history of
-    (Meta 1 _)::more-> showUndoAux more (num + 1) 
-    (Meta 2 _)::more->  showUndoAux more (num - 1) 
+    (C.Meta 1 _)::more-> showUndoAux more (num + 1) 
+    (C.Meta 2 _)::more->  showUndoAux more (num - 1) 
     _ -> num < C.historyLimit && num < (length history)
 
 
-showRedo : [Button] -> Bool
+showRedo : [C.Button] -> Bool
 showRedo history = showRedoAux history 0
 showRedoAux history index =
     case history of
-    (Meta 1 _)::more-> index == 0 || (showRedoAux more (index - 1))
-    (Meta 2 _)::more-> showRedoAux more (index + 1)
+    (C.Meta 1 _)::more-> index == 0 || (showRedoAux more (index - 1))
+    (C.Meta 2 _)::more-> showRedoAux more (index + 1)
     _ -> False
 
 -- Post: irreversibly reduces the history by removing oldest undo/redo
 --       expression to what is currently intended, includes count of undos removed                  
-compressHistory : [Button] -> [Button]
+compressHistory : [C.Button] -> [C.Button]
 compressHistory history = compressAux history [] 0 0
 compressAux history solution undos redos =
     if history == [] then history else 
     let end = last history 
         rest = take (length history - 1) history
     in case end of
-        Meta 1 _ -> compressAux rest solution (undos + 1) redos 
-        Meta 2 _ -> compressAux rest solution undos (redos + 1)
+        C.Meta 1 _ -> compressAux rest solution (undos + 1) redos 
+        C.Meta 2 _ -> compressAux rest solution undos (redos + 1)
         _ -> -- fun or var button
             if undos == 0 -- havn't reached undo or redo yet
             then compressAux rest (end::solution) 0 0
@@ -152,7 +155,7 @@ compressAux history solution undos redos =
 --    case model.history of 
 --    redo::changes -> --first argument alwayws redo button
 --        let history = changes  --hist doesn't include instruction to undo
---            arg = (Click, head model.future)
+--            arg = (C.Click, head model.future)
 --            m = update arg { model | history <- history }
 --        in { m | future <- tail model.future 
 --           , history <- model.history }
@@ -161,19 +164,19 @@ compressAux history solution undos redos =
 -- Pre: in history of buttons, redos always precede undos
 -- Post: filters every button pressed, reducing a list of undos,redos,etc
 --       into actual history
-getChanges : [Button] -> [Button]
+getChanges : [C.Button] -> [C.Button]
 getChanges history = getChangesAux history [] 0
 getChangesAux history changes undo =
     case history of
     [] -> changes
-    (Meta 1 _)::more -> -- undo
+    (C.Meta 1 _)::more -> -- undo
         getChangesAux more changes (undo + 1)
     _ -> 
         if undo > 0 
         then getChangesAux (drop undo history) changes 0
         else  -- if no undos then accumulate redos/funs/vars
             case history of 
-            (Meta 2 _)::more -> getChangesAux more changes (undo - 1)
+            (C.Meta 2 _)::more -> getChangesAux more changes (undo - 1)
             other::more -> getChangesAux more (changes++[other]) 0
 
 -- Pre: assumes that length of model.values < 7
@@ -249,11 +252,12 @@ render (w, h) model =
      ])
 
 -- Signals
-signals : Signal (Action, Button)
+type Inputs = (C.Action, C.Button)
+signals : Signal Inputs
 signals = inputs.signal
 
-inputs : Input (Action, Button)
-inputs = input (None, Var 0 Available)
+inputs : Input Inputs
+inputs = input (C.None, C.Var 0 C.Available)
 
 -- Pre: assumes new is a number and old a number list
 -- Post: returns a list, which swaps the state as to whether old contained new
@@ -282,15 +286,15 @@ getButton buttonType buttonState index =
         w = widthOf element
         h = heightOf element
         linked =  link "#" (container (w + 15) (h + 10) middle element)
-        sigState = if buttonState == 0 || buttonState == 1 then Available else Hidden -- 3 is considered above
-        sigButton = if | buttonType == 0 -> Fun  index sigState  
-                       | buttonType == 1 -> Var  index sigState  
-                       | buttonType == 2 -> Meta index sigState  
+        sigState = if buttonState == 0 || buttonState == 1 then C.Available else C.Hidden -- 3 is considered above
+        sigButton = if | buttonType == 0 -> C.Fun  index sigState  
+                       | buttonType == 1 -> C.Var  index sigState  
+                       | buttonType == 2 -> C.Meta index sigState  
         styled = if | buttonState == 0 -> linked
                     | buttonState == 1 -> (color (rgba 0 0 0 0.1) linked)
                     | otherwise -> opacity 0.5 linked
-        b = clickable inputs.handle (Click, sigButton) styled
-    in hoverable inputs.handle (\bool -> if bool then (Hover, sigButton) else (None, sigButton)) b
+        b = clickable inputs.handle (C.Click, sigButton) styled
+    in hoverable inputs.handle (\bool -> if bool then (C.Hover, sigButton) else (C.None, sigButton)) b
 
 defsFromExps : [[Int]] -> [Element]
 defsFromExps exps =

@@ -4,6 +4,7 @@ import Window
 import Mouse 
 import Text as T
 import Array as A
+import Time (fps,Time)
 
 import Constants as C
 import Expr as E
@@ -15,6 +16,9 @@ import Vector as V
     update: 
     conversion fun, expr -> space    
     eval converted space
+    if possible/theres a good way to limit cost of both graph and ui events:
+        graph should always rotate, and should respond to drag, which
+        affects graph rotation (skewing the graph is rarely helpful)
 
     render:
     show rotation arrow if C.rotate
@@ -26,17 +30,19 @@ import Vector as V
 -}
 
 
---main = render <~ Window.dimensions ~ (foldp update C.model signals)
+--main = render <~ Window.dimensions ~ state
+state = foldp update C.model signals
 
 -- Model
 --defined in Constants as C.model
 
 -- Update
+update : Inputs -> C.Model -> C.Model
 update s model = 
     let pressed = s.a
         mouse = s.b       
         window = s.c
-        --delta = signals.d
+        delta = s.d
         x' = toFloat ((fst mouse) - (div (fst window) 2))
         y' = toFloat (-(snd mouse) + (div (snd window) 2))
         b1' = head model.basis 
@@ -51,12 +57,12 @@ update s model =
                                          | b2' == closest -> "b2"
                                          | otherwise  -> "b3"
         b1 = if | target == "b1" -> (x',y') 
---              | C.rotate -> V.rotate' b1' (model.velocity * delta / 1000)
+                | C.rotate -> V.rotate' b1' (model.velocity * delta / 1000)
                 | otherwise -> b1'
         b2 = if | target == "b2" -> (x',y') 
                 | otherwise -> b2'
         b3 = if | target == "b3" -> (x',y') 
---              | C.rotate -> V.rotate' b3' (model.velocity * delta / 1000)
+                | C.rotate -> V.rotate' b3' (model.velocity * delta / 1000)
                 | otherwise -> b3'
     in { model | basis <- [b1,b2,b3]
                , target <- target }
@@ -92,8 +98,9 @@ render (w, h) model =
 --durp = lift5 (\a b c d e ->{a=a,b=b,c=c,d=d,e=e}) Mouse.isDown Mouse.position Window.dimensions randColors (fps frameSpeed)
 --time = sampleOn durp (every millisecond)
 --
-signals : Signal {a:Bool,b:(Int,Int),c:(Int,Int)}--,d:Time}
-signals = (lift3 (\a b c ->{a=a,b=b,c=c}) Mouse.isDown Mouse.position Window.dimensions) --C.fps
+type Inputs = {a:Bool,b:(Int,Int),c:(Int,Int),d:Time}
+signals : Signal Inputs --,d:Time}
+signals = lift4 (\a b c d ->{a=a,b=b,c=c,d=d}) Mouse.isDown Mouse.position Window.dimensions (fps C.fps)
 --
 --
 --randColorSeed = Random.float (constant 4)

@@ -28,19 +28,26 @@ main = render <~ Window.dimensions ~ state
 --defined in Constants as C.model
 
 -- Update
-update signal m =
-    case signal of
-    (Either.Left a) -> Graph.update a m
-    (Either.Right b) -> Ui.update b m
+update : Inputs -> C.Model -> C.Model
+update (g,u) m =
+    if u == m.oldUiInput 
+    then Graph.update g m
+    else Graph.update g <| Ui.update u m
+            
 
 -- Render
+render : (Int, Int) -> C.Model -> Element
 render (w,h) m = 
      layers [ Graph.render (w,h) m 
             , Ui.render (w,h) m ]
 
 -- Signals
 --delta = fps C.fps
-state = foldp update C.model signals
+state : Signal C.Model
+state = Graph.state--foldp update C.model signals
+-- .expr <~ Ui.state
 
-signals : Signal (Either.Either {a:Bool,b:(Int,Int),c:(Int,Int)} (Ui.Action, Ui.Button))
-signals = merge (Either.Left <~ Graph.signals) (Either.Right <~ Ui.signals)
+
+type Inputs = (Graph.Inputs, Ui.Inputs) 
+signals : Signal Inputs
+signals = (,) <~ Graph.signals ~ Ui.signals
