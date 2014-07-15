@@ -20,8 +20,6 @@ type SharedModel a = { a
                      , value      : V.Space
                      , exprs      : [[Int]]
                      , values     : [V.Space]
-                     , oldGInput  : {a:Bool,b:(Int,Int),c:(Int,Int)}
-                     , oldUiInput : (Action, Button)
                      }
 type UIModel a = { a
                  | funs    : A.Array Int
@@ -32,10 +30,8 @@ type UIModel a = { a
                  , base    : [Button]
                  }
 type GraphModel a = { a
-                    | basis   : [(Float,Float)]
-                    , target  : String
-                    , units   : Float
-                    , velocity: Float
+                    | basis : [(Float,Float)]
+                    , units : Float 
                     }
 type Model = (UIModel (GraphModel (SharedModel {})))
 
@@ -46,8 +42,6 @@ model = {
         , value = V.Abyss
         , exprs = expressions -- [[functionID, varID,..]], list of var expr
         , values = values -- list of vectors behind all expressions
-        , oldGInput  = {a=False,b=(0,0),c=(0,0)}
-        , oldUiInput = (None, Var -1 Available)
         -- ui part 
         , funs = (A.repeat (length funs) 0)
         , vars = (A.repeat (length vars) 0) --  transparent state
@@ -57,14 +51,12 @@ model = {
         , base = [] -- buffer of commited changes
         -- graph part
         , basis  = [(0,40),(0,50),(50,0)]
-        , target = "" 
         , units = 1
-        , velocity = pi/40
         }
 
 historyLimit = 20
+velocity = pi/40
 fps = 30
-rotate = True
 values = [ V.Vector 1 1 1
          , V.Vector 2 1 2
          , V.Vector 3 3 0

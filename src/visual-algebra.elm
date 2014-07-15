@@ -22,32 +22,23 @@ import Debug (..)
 
 -}
 
-main = render <~ Window.dimensions ~ state
+main = render <~ graph ~ ui
 
 -- Model
 --defined in Constants as C.model
 
 -- Update
-update : Inputs -> C.Model -> C.Model
-update (g,u) m =
-    if u == m.oldUiInput 
-    then Graph.update g m
-    else Graph.update g <| Ui.update u m
+ui = Ui.render <~ Window.dimensions ~ Ui.state
+graph = Graph.render <~ Window.dimensions 
+                      ~ (addUiStateToGraph <~ Ui.state 
+                                            ~ Graph.state)
+
+addUiStateToGraph u g = { g | values <- u.values, expr <- u.expr, exprs <- u.exprs }
             
 
 -- Render
-render : (Int, Int) -> C.Model -> Element
-render (w,h) m = 
-     layers [ Graph.render (w,h) m 
-            , Ui.render (w,h) m ]
-
--- Signals
---delta = fps C.fps
-state : Signal C.Model
-state = Graph.state--foldp update C.model signals
--- .expr <~ Ui.state
+render : Element -> Element -> Element
+render g u = 
+     layers [ g, u ]
 
 
-type Inputs = (Graph.Inputs, Ui.Inputs) 
-signals : Signal Inputs
-signals = (,) <~ Graph.signals ~ Ui.signals

@@ -105,7 +105,6 @@ onUndo model =
        , base <- base 
        , meta <- meta'' 
        , basis <- model.basis
-       , target <- model.target
        , units <- model.units}
     --_ -> fail otherwise history should always have 2 on undo
 
@@ -285,7 +284,7 @@ getButton buttonType buttonState index =
         element = leftAligned (T.height 15 (monospace (toText name)))
         w = widthOf element
         h = heightOf element
-        linked =  link "#" (container (w + 15) (h + 10) middle element)
+        linked =  link "#" (container (w + 10) (h + 5) middle element)
         sigState = if buttonState == 0 || buttonState == 1 then C.Available else C.Hidden -- 3 is considered above
         sigButton = if | buttonType == 0 -> C.Fun  index sigState  
                        | buttonType == 1 -> C.Var  index sigState  
@@ -293,8 +292,9 @@ getButton buttonType buttonState index =
         styled = if | buttonState == 0 -> linked
                     | buttonState == 1 -> (color (rgba 0 0 0 0.1) linked)
                     | otherwise -> opacity 0.5 linked
-        b = clickable inputs.handle (C.Click, sigButton) styled
-    in hoverable inputs.handle (\bool -> if bool then (C.Hover, sigButton) else (C.None, sigButton)) b
+        b = clickable inputs.handle (C.Click, sigButton) styled 
+    --in hoverable inputs.handle (\bool -> if bool then (C.Hover, sigButton) else (C.None, sigButton)) b
+    in b
 
 defsFromExps : [[Int]] -> [Element]
 defsFromExps exps =

@@ -7,6 +7,7 @@ import Array as A
 import Time (fps,Time)
 
 import Constants as C
+import Drag
 import Expr as E
 import Vector as V
 
@@ -30,7 +31,7 @@ import Vector as V
 -}
 
 
---main = render <~ Window.dimensions ~ state
+main = render <~ Window.dimensions ~ state
 state = foldp update C.model signals
 
 -- Model
@@ -39,33 +40,14 @@ state = foldp update C.model signals
 -- Update
 update : Inputs -> C.Model -> C.Model
 update s model = 
-    let pressed = s.a
-        mouse = s.b       
-        window = s.c
-        delta = s.d
-        x' = toFloat ((fst mouse) - (div (fst window) 2))
-        y' = toFloat (-(snd mouse) + (div (snd window) 2))
-        b1' = head model.basis 
-        b2' = head (tail model.basis)
-        b3' = head (tail (tail model.basis))
-        near = filter (\v -> (V.distance' v (x', y')) < 10) [b1', b2', b3']
-        target = if | not pressed -> ""
-                    | not (model.target == "") -> model.target
-                    | near == [] -> ""
-                    | otherwise -> let closest = head (sortBy (\v -> V.distance' v (x', y')) near)
-                                   in if | b1' == closest -> "b1"
-                                         | b2' == closest -> "b2"
-                                         | otherwise  -> "b3"
-        b1 = if | target == "b1" -> (x',y') 
-                | C.rotate -> V.rotate' b1' (model.velocity * delta / 1000)
-                | otherwise -> b1'
-        b2 = if | target == "b2" -> (x',y') 
-                | otherwise -> b2'
-        b3 = if | target == "b3" -> (x',y') 
-                | C.rotate -> V.rotate' b3' (model.velocity * delta / 1000)
-                | otherwise -> b3'
-    in { model | basis <- [b1,b2,b3]
-               , target <- target }
+    let delta = s
+        b1 = head model.basis 
+        b2 = head (tail model.basis)
+        b3 = head (tail (tail model.basis))
+        b1' = V.rotate' b1 (C.velocity * delta / 1000)
+        b2' =  b2
+        b3' = V.rotate' b3 (C.velocity * delta / 1000)
+    in { model | basis <- [b1',b2',b3'] }
 
 
 -- Render
@@ -98,9 +80,9 @@ render (w, h) model =
 --durp = lift5 (\a b c d e ->{a=a,b=b,c=c,d=d,e=e}) Mouse.isDown Mouse.position Window.dimensions randColors (fps frameSpeed)
 --time = sampleOn durp (every millisecond)
 --
-type Inputs = {a:Bool,b:(Int,Int),c:(Int,Int),d:Time}
-signals : Signal Inputs --,d:Time}
-signals = lift4 (\a b c d ->{a=a,b=b,c=c,d=d}) Mouse.isDown Mouse.position Window.dimensions (fps C.fps)
+type Inputs = Time
+signals : Signal Inputs
+signals = fps C.fps
 --
 --
 --randColorSeed = Random.float (constant 4)
@@ -114,4 +96,3 @@ signals = lift4 (\a b c d ->{a=a,b=b,c=c,d=d}) Mouse.isDown Mouse.position Windo
 --randColors = lift getRandColors randColorSeed
 --main = lift2 render signals (foldp brain model signals)
 --
-
