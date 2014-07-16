@@ -48,13 +48,11 @@ update (action, button) model =
         C.Fun  index _ -> { model | funs <- A.set index 1 model.funs }
         C.Meta index _ -> { model | meta <- A.set index 1 model.meta }
     C.Click -> 
-        let m = { model | history <- button::model.history 
-                , meta <- A.set 1 0 model.meta}
-        in 
-            case button of
+        let m = { model | meta <- A.set 1 0 model.meta } in
+        case button of
             C.Var  index _ -> varUpdate  index m
             C.Fun  index _ -> funUpdate  index m
-            C.Meta index _ -> metaUpdate index m
+            C.Meta index _ -> metaUpdate index model
     C.None -> 
         case button of 
         C.Var  index _ -> { model | vars <- A.set index 0 model.vars }
@@ -62,28 +60,52 @@ update (action, button) model =
         C.Meta index _ -> { model | meta <- A.set index 0 model.meta })
 
 
-
 -- Pre: assumes buttonId refers to the id of a variable button
 -- Post: updates model based on the button clicked
 varUpdate varId model =
     let index = model.index -- index of expression to replace value
         expr =  E.replace index model.expr (E.Leaf varId)
+        space = exprToSpace expr model.values
+        value = V.eval space
+        meta = if value == V.Abyss then model.meta else A.set 0 0 model.meta
+        meta' = if model.expr == E.Empty then meta else A.set 3 0 meta
     in { model | expr <- expr 
-       , index <- index + 1 }
+       , index <- index + 1 
+       , value <- value 
+       , meta <- meta' 
+       , history <- (C.Var varId C.Available)::model.history }
 
 -- Pre: assumes buttonId refers to the id of a variable button
 -- Post: updates model based on the button clicked
 funUpdate funId model =
     let index = model.index -- index of expression to replace value
-        def = if | funId == 4 || funId == 5 -> E.Node funId [E.Empty]
-                 | otherwise -> E.Node funId [E.Empty, E.Empty]
-        expr = E.replaceNode index model.expr funId def -- replaces directly if possible
+        funExpr = 
+            if funId == 4 || funId == 5 
+            then E.Unary funId E.Empty 
+            else E.Duo funId E.Empty E.Empty
+        expr = E.replace index model.expr funExpr -- replaces directly if possible
+        space = exprToSpace expr model.values
+        value = V.eval space
+        meta = if value == V.Abyss then model.meta else A.set 0 0 model.meta
+        meta' = if model.expr == E.Empty then meta else A.set 3 0 meta
     in { model | expr <- expr 
-       , index <- index + 1 }
+       , index <- index + 1
+       , value <- value 
+       , meta <- meta'
+       , history <- (C.Fun funId C.Available)::model.history }
+ 
+metaUpdate metaId model = 
+    let m = { model | history <- (C.Meta metaId C.Available)::model.history } in
+    if | metaId == 0 -> onSave m
+       | metaId == 1 || metaId == 2 -> onUndo m
+       | metaId == 3 -> onClear m
+       | metaId == 4 -> onQuestion model
+       | otherwise -> model
 
-metaUpdate metaId model =
-  if | metaId == 1 || metaId == 2 -> onUndo model
-     | otherwise -> model
+onSave model =
+    { model | values <- model.values ++ [model.value]
+    , expr <- E.Leaf (length model.values) 
+    , vars <- A.set (length model.values) 0 model.vars }
  
 -- Pre: assumes model.history contains at least [undoButton, aChange]
 -- Post: resets the model to previous state
@@ -107,6 +129,13 @@ onUndo model =
        , basis <- model.basis
        , units <- model.units}
     --_ -> fail otherwise history should always have 2 on undo
+
+onClear model =
+    { model | expr <- E.Empty
+    , value <- V.Abyss
+    , index <- 0 }
+
+onQuestion model = model
 
 -- Post: returns length of history, minus initial consecutive undos/redos
 historyLength : [C.Button] -> Int
@@ -217,16 +246,16 @@ hasNotHelper var lst =
                  then False 
                  else (hasNotHelper var more)
     
--- Pre: Assumes that values / varQueue represent same data (must have same length)
--- Post: Returns a pair: (value of evaluating a geometry, expression of eval)
-getTemp funId values varQueue =
-    let len = length values 
-    in if | len == 0 -> (V.Abyss, funId::varQueue)
-          | funId == 0 -> (V.eval (V.Atom (head values)), 0::[last varQueue])
-          | funId == 1 -> (V.eval (V.Span values), 1::varQueue) 
-          | funId == 2 && len > 1 -> (V.eval (V.Project (head values) (head (tail values))), 2::varQueue)
-          | funId == 3 && len > 1 -> (V.eval (V.Reject (head values) (head (tail values))), 3::varQueue)
-          | otherwise -> (V.Abyss, funId::varQueue)
+---- Pre: Assumes that values / varQueue represent same data (must have same length)
+---- Post: Returns a pair: (value of evaluating a geometry, expression of eval)
+--getTemp funId values varQueue =
+--    let len = length values 
+--    in if | len == 0 -> (V.Abyss, funId::varQueue)
+--          | funId == 0 -> (V.eval (head values), 0::[last varQueue])
+--          | funId == 1 -> (V.eval (V.Span values), 1::varQueue) 
+--          | funId == 2 && len > 1 -> (V.eval (V.Project (head values) (head (tail values))), 2::varQueue)
+--          | funId == 3 && len > 1 -> (V.eval (V.Reject (head values) (head (tail values))), 3::varQueue)
+--          | otherwise -> (V.Abyss, funId::varQueue)
 
 -- Render
 render (w, h) model = 
@@ -246,7 +275,7 @@ render (w, h) model =
         , width 250 (flow right varButtons)
         , height 90 (width 250 (flow right funButtons))
         , height 90 (width 250 (flow right metaButtons))
-   --   , width 250 (flow down varDefinitions)
+   --   , width 500 (asText model)
    --   , width 250 funDefinition
      ])
 
@@ -334,3 +363,21 @@ getDef exp =
 defFromFun funId =
     let def = (head (drop funId C.defs))
     in leftAligned (T.height 15 (monospace (toText def)))
+
+exprToSpace expr values =
+    case expr of
+    E.Empty -> V.Abyss
+    E.Leaf varId -> values |> drop varId 
+                           |> head
+    E.Unary funId e -> let s = exprToSpace e values in
+        if | funId == 4 -> V.Unit s
+           | funId == 5 -> V.Scale s
+           | funId == 6 -> V.Rotate s
+           | funId == 7 -> V.Trace s
+    E.Duo funId a b -> 
+        let s1 = exprToSpace a values
+            s2 = exprToSpace b values
+        in if | funId == 0 -> V.Add s1 s2
+              | funId == 1 -> V.Subtract s1 s2
+              | funId == 2 -> V.Project s1 s2
+              | funId == 3 -> V.Reject s1 s2

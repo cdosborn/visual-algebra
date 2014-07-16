@@ -33,7 +33,7 @@ graph = Graph.render <~ Window.dimensions
                       ~ (addUiStateToGraph <~ Ui.state 
                                             ~ Graph.state)
 
-addUiStateToGraph u g = { g | values <- u.values, expr <- u.expr, exprs <- u.exprs }
+addUiStateToGraph u g = { g | value <- u.value, values <- u.values, expr <- u.expr, exprs <- u.exprs }
             
 
 -- Render

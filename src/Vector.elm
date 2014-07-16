@@ -1,9 +1,9 @@
 module Vector where
-
-import Regex (find, regex, AtMost)
+import Text as T
 
 {-
     TODO:
+    drawVector ignores units?
     eval is incomplete, it needs to eval its argument before evaluating its expression
         this will at least effect how V.span [] is handled in Ui.elm
     clean-up sorting routine, especially draw method, handle order, unit vectors
@@ -12,35 +12,24 @@ import Regex (find, regex, AtMost)
 -}
 
 data Space = Abyss 
-        | Vector Float Float Float 
-        | Line Space 
-        | Plane [Space]
-        | Volume 
-        | Atom Space 
-        | Span [Space]
-        | Perpendicular [Space]
-        | Project Space Space 
-        | Reject Space Space 
--------- | Intersection [Vector]
--------- | Sum [Vector]
--------- | Difference [Vector]
--------- | Parallel Space Space 
+           | Vector Float Float Float 
+           | Add Space Space
+           | Subtract Space Space
+           | Project Space Space 
+           | Reject Space Space 
+           | Unit Space 
+           | Scale Space
+           | Rotate Space
+           | Trace Space
 
 -- Pre: takes list of spaces, ignoring non-vector spaces
 -- Post: Returns the space represented by the span of vector spaces
 eval : Space -> Space 
 eval exp = case exp of
             Vector a b c -> exp
-            Line s -> case (eval s) of
-                Vector a b c -> Line (Vector a b c)            
-                _ -> Abyss
-    ----    Plane vs -> case (eval s1) of
-    ----        Vector a b c -> (case (eval s2) of
-    ----        Vector d e f -> Plane (Vector a b c) (Vector d e f)
-    ----        _ -> Abyss)
-    ----        _ -> Abyss
-            Atom s -> eval s
-            Span spaces -> evalSpan spaces
+            Unit s -> unit (eval s)
+            Add s1 s2 -> add (eval s1) (eval s2)
+            Subtract s1 s2 -> subtract (eval s1) (eval s2)
             Project s1 s2 -> case (eval s1) of
                 Vector a b c -> (case (eval s2) of
                 Vector d e f -> (Vector a b c) `project` (Vector d e f)
@@ -51,7 +40,6 @@ eval exp = case exp of
                 Vector d e f -> (Vector a b c) `reject` (Vector d e f)
                 _ -> Abyss)
                 _ -> Abyss
-
             _ -> Abyss
             --Span x::xs -> independent 
             --Span (Vector a b c) (Plane (Vector d e f) (Vector g h i)) -> 
@@ -61,45 +49,43 @@ eval exp = case exp of
           --Sum a b -> Vector 0 0 0
           --Difference a b -> Vector 0 0 0
 
--- Pre: takes list of spaces, ignoring non-vector spaces
--- Post: Returns the space represented by the span of vector spaces
-evalSpan : [Space] -> Space
-evalSpan spaces =
-    let vectors = filter (\space -> case space of 
-                                    Vector a b c -> True 
-                                    _ -> False) spaces
-    in case vectors of 
-        [] -> Abyss 
-        one::[] -> Line one
-        more -> 
-            let basis = getBasis more []
-                count = length basis 
-            in if | count == 1 -> Line (head basis)
-                  | count == 2 -> Plane basis
-                  | otherwise -> Volume
+---- Pre: takes list of spaces, ignoring non-vector spaces
+---- Post: Returns the space represented by the span of vector spaces
+--evalSpan : [Space] -> Space
+--evalSpan spaces =
+--    let vectors = filter (\space -> case space of 
+--                                    Vector a b c -> True 
+--                                    _ -> False) spaces
+--    in case vectors of 
+--        [] -> Abyss 
+--        one::[] -> Line one
+--        more -> 
+--            let basis = getBasis more []
+--                count = length basis 
+--            in if | count == 1 -> Line (head basis)
+--                  | count == 2 -> Plane basis
+--                  | otherwise -> Volume
 
 -- Pre: Assumes list of expressions
 -- Post: Sorts vectors by z depth, other spaces are infront
 sortGeoms : [(Space, Color)] -> [(Space, Color)]
 sortGeoms geoms =
     sortWith (\(g1,c1) (g2,c2) -> case g1 of
-        Atom (Vector a b c) -> (case g2 of
-        Atom (Vector d e f) -> EQ  
+        Vector a b c -> (case g2 of
+        Vector d e f -> EQ  
         _ -> GT) 
         _ -> LT) geoms
 
 -- Pre: Assumes 3 vector basis, in pair vector notation
 -- Post: Returns a form of the space rendered with respect to the basis
-draw : [(Float,Float)] -> Float -> Color -> Space -> Form
-draw basis units col space = 
-    let c = toHsl col
-        lightCol = hsla c.hue c.saturation c.lightness (c.alpha * 0.8)
-    in case space of
-        Vector a b c -> drawVector basis col space 
-        Line a -> drawLine basis units lightCol a  
-        Plane vs -> drawPlane basis units lightCol vs 
-        Volume -> drawVolume basis units lightCol
-        _ -> toForm empty
+draw : [(Float,Float)] -> Float -> Maybe String -> Color -> Space -> Form
+draw basis units label col space = 
+    case space of
+    Vector a b c -> drawVector basis label col space 
+--  Line a -> drawLine basis units lightCol a  
+--  Plane vs -> drawPlane basis units lightCol vs 
+--  Volume -> drawVolume basis units lightCol
+    _ -> toForm empty
 
 -- Pre: Assumes list of vectors
 -- Post: Returns true for a linearly independent set, false otherwise
@@ -132,17 +118,18 @@ getBasis vectors basis =
                       else getBasis vs basis
         _ -> basis
 
--- Pre: Takes set of vectors
--- Post: Returns a perpendicular basis from a set of vectors
-getOrthoBasis : [Space] -> [Space]
-getOrthoBasis vectors =
-    let basis = getBasis vectors []
-    in case basis of
-        [] -> []
-        one::[] -> basis
-        one::two::[] -> [two, one `reject` two]
-        one::two::three::[] -> let partOfBasis = getOrthoBasis [one, two]  
-            in (three `reject` (Plane partOfBasis))::partOfBasis
+---- Pre: Takes set of vectors
+---- Post: Returns a perpendicular basis from a set of vectors
+--getOrthoBasis : [Space] -> [Space]
+--getOrthoBasis vectors =
+--    let basis = getBasis vectors []
+--    in case basis of
+--        [] -> []
+--        one::[] -> basis
+--        one::two::[] -> [two, one `reject` two]
+--        one::two::three::[] -> let partOfBasis = getOrthoBasis [one, two]  
+--            in (three `reject` (Plane partOfBasis))::partOfBasis
+
 
 -- Pre: Assumes first can be projectable onto the second (ex. vectors onto planes | vectors)
 -- Post: Returns the complement of the vector projection (rejection), returns Abyss if not vectors
@@ -158,10 +145,10 @@ project v1 v2 = case v1 of
     Vector a b c -> (case v2 of
     Vector d e f -> let scalar = (v1 `dot` v2)/(d*d+e*e+f*f)
                     in scale v2 scalar
-    Plane vs -> let basis = getOrthoBasis vs
-                    b1 = head basis
-                    b2 = last basis
-                in (v1 `project` b1) `add` (v1 `project` b2)
+--  Plane vs -> let basis = getOrthoBasis vs
+--                  b1 = head basis
+--                  b2 = last basis
+--              in (v1 `project` b1) `add` (v1 `project` b2)
     _ -> Abyss)
     _ -> Abyss
 
@@ -176,16 +163,18 @@ dot v1 v2 = case v1 of
 -- Post: Returns vector difference of vectors, returns Abyss if not vectors
 subtract : Space -> Space -> Space
 subtract v1 v2 = case v1 of
-    Vector a b c -> case v2 of
+    Vector a b c -> (case v2 of
     Vector d e f -> Vector (a-d) (b-e) (c-f)
+    _ -> Abyss)
     _ -> Abyss
 
 -- Pre: Assumes two arguments are Vector spaces
 -- Post: Returns vector sum of vectors, returns Abyss if not vectors
 add : Space -> Space -> Space
 add v1 v2 = case v1 of
-    Vector a b c -> case v2 of
+    Vector a b c -> (case v2 of
     Vector d e f -> Vector (a+d) (b+e) (c+f)
+    _ -> Abyss)
     _ -> Abyss
 
 -- Pre: Assumes first argument is a vector space
@@ -196,16 +185,26 @@ scale v s = case v of
     _ -> Abyss
 
 -- Pre: Assumes first argument is a vector space
--- Post: Returns length of vector, fails for non-vector space
-distance : Space -> Float
+-- Post: Returns length of vector
+distance : Space -> Maybe Float
 distance v = case v of
-    Vector a b c -> sqrt(a*a+b*b+c*c)
+    Vector a b c -> Just (sqrt(a*a+b*b+c*c))
+    _ -> Nothing
+    
+
+unit : Space -> Space
+unit v = 
+    case distance v of
+    Just dist -> (case v of
+        Vector a b c -> Vector (a / dist) (b / dist) (c / dist)
+        _ -> Abyss)
+    _ -> Abyss
 
 
 -- Pre: Assumes vector is a pair of floats
 -- Post: Returns scaled vector, returns Abyss for non vector space
-drawVector : [(Float, Float)] -> Color -> Space -> Form
-drawVector basis col space = 
+drawVector : [(Float, Float)] -> Maybe String -> Color -> Space -> Form
+drawVector basis mlabel col space = 
     case space of
     Vector a b c ->
         let vec = basis |> zipWith (\c b -> scale' b c) [a,b,c]
@@ -221,7 +220,12 @@ drawVector basis col space =
             seg1 = segment vec' arr1
             seg2 = segment vec' arr2
             style = traced { defaultLine | width <- 2 , color <- col}
-    in group [style seg1, style seg2, style seg]
+            strStyle = (\str -> (leftAligned (T.height 12 (monospace (toText str)))))
+            label = 
+                case mlabel of
+                Nothing -> toForm empty 
+                Just str -> move (fst vec', (snd vec') + 13) (toForm (strStyle str))
+        in group [style seg1, style seg2, style seg, label]
 
 drawLine : [(Float, Float)] -> Float -> Color -> Space -> Form
 drawLine basis units col space = 
@@ -275,19 +279,19 @@ drawVolume basis units col =
     --in group (map (\p -> move p (filled black (circle  1.5))) outline)
     in filled col (polygon outline)
 
-drawPlane : [(Float,Float)] -> Float -> Color -> [Space] -> Form
-drawPlane basis units col vs = 
-    let plane = Plane (getOrthoBasis vs)
-        bs = [ Vector 1 1 1, Vector -1 -1 1, Vector 1 -1 1, Vector -1 1 1
-             , Vector 1 1 -1, Vector -1 -1 -1, Vector 1 -1 -1, Vector -1 1 -1]
-        projections = map (\b -> b `project` plane) bs
-        points = map (\v -> case v of
-                            Vector a b c -> basis |> zipWith (\c b -> scale' b (c*units)) [a,b,c]
-                                                  |> foldr add' (0,0)) projections
-        --boundary = volumePoints basis units 
-        --points' = filter (\p'-> or (map (\p -> p == p') boundary)) points
-        outline = outsidePath' points
-    in filled col (polygon outline)
+--drawPlane : [(Float,Float)] -> Float -> Color -> [Space] -> Form
+--drawPlane basis units col vs = 
+--    let plane = Plane (getOrthoBasis vs)
+--        bs = [ Vector 1 1 1, Vector -1 -1 1, Vector 1 -1 1, Vector -1 1 1
+--             , Vector 1 1 -1, Vector -1 -1 -1, Vector 1 -1 -1, Vector -1 1 -1]
+--        projections = map (\b -> b `project` plane) bs
+--        points = map (\v -> case v of
+--                            Vector a b c -> basis |> zipWith (\c b -> scale' b (c*units)) [a,b,c]
+--                                                  |> foldr add' (0,0)) projections
+--        --boundary = volumePoints basis units 
+--        --points' = filter (\p'-> or (map (\p -> p == p') boundary)) points
+--        outline = outsidePath' points
+--    in filled col (polygon outline)
 
 
 --probably the worst blunder of code ever writtern
@@ -385,22 +389,22 @@ rotate' vec theta = let pol = toPolar vec
 --    in fromPolar (l, snd p)
 pretty' v = map (\x -> (toFloat (round (10 * x))) / 10) v
 
---converts from string to [Maybe (Vector)]
-vecReg str = (toMatrix str)
-matReg str = toMatrix str
-
-toMatrix str = findMatches str |> map .submatches      --list of maybe str lists
-                               |> map toMaybeFloatList --maybe str list to maybe float lst
-                               |> map toMaybePairList  --maybe float lst to maybe pair
-
-rexp = "\\((-?[0-9]+\\.?[0-9]*),(-?[0-9]+\\.?[0-9]*)\\)"
-
-findMatches str =  find (AtMost 2) (regex rexp) str
-
-toMaybeFloatList lst = case lst of
-                       (Just fst)::(Just snd)::[] -> map String.toFloat [fst, snd]
-                       _ -> []
-               
-toMaybePairList lst = case lst of
-                      (Just fst)::(Just snd)::[] -> Just (fst, snd)
-                      _ -> Nothing
+----converts from string to [Maybe (Vector)]
+--vecReg str = (toMatrix str)
+--matReg str = toMatrix str
+--
+--toMatrix str = findMatches str |> map .submatches      --list of maybe str lists
+--                               |> map toMaybeFloatList --maybe str list to maybe float lst
+--                               |> map toMaybePairList  --maybe float lst to maybe pair
+--
+--rexp = "\\((-?[0-9]+\\.?[0-9]*),(-?[0-9]+\\.?[0-9]*)\\)"
+--
+--findMatches str =  find (AtMost 2) (regex rexp) str
+--
+--toMaybeFloatList lst = case lst of
+--                       (Just fst)::(Just snd)::[] -> map String.toFloat [fst, snd]
+--                       _ -> []
+--               
+--toMaybePairList lst = case lst of
+--                      (Just fst)::(Just snd)::[] -> Just (fst, snd)
+--                      _ -> Nothing

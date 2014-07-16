@@ -53,26 +53,18 @@ update s model =
 -- Render
 render (w, h) model = 
     let basis = model.basis
-        axis = [ (V.Vector 1 0 0, greyscale 0.3)
-               , (V.Vector 0 1 0, greyscale 0.3)
-               , (V.Vector 0 0 1, greyscale 0.3)
+        axis = [ (V.Vector 1 0 0, greyscale 0.3, Nothing)
+               , (V.Vector 0 1 0, greyscale 0.3, Nothing)
+               , (V.Vector 0 0 1, greyscale 0.3, Nothing)
                ]
-        spaces = model.values-- ++ expr
-        colored = map (\s -> (s, blue)) spaces
+        values = model.values
+        spaces = if model.value == V.Abyss 
+                 then map (\i -> (head (drop i values), head (drop i C.colors), Just (head (drop i C.vars)))) [0 .. ((length model.values) - 1)]
+                 else [(model.value, (head (drop (length values) C.colors)), Nothing)]
         -- sortGeoms when geoms change
-        forms = map (\(s, col) -> (V.draw basis model.units col s)) (colored ++ axis)
+        forms = map (\(s, col, label) -> (V.draw basis model.units label col s)) (spaces ++ axis)
         grid = V.drawGrid basis model.units
-        style = (\str -> (leftAligned (T.height 12 (monospace (toText str)))))
-        moves = model.values
-----        --|> map (\i -> head (drop i model.values)) --map to Vectors
-            |> map (\v -> 
-                case v of
-                V.Vector a b c -> [a,b,c]) --map to list of components 
-            |> map (\v -> foldr V.add' (0,0) (zipWith (\c b -> V.scale' b c) v basis)) --zip to pair of coord
-        textForms = map (\i -> toForm (style (head (drop i C.vars)))) [0 .. ((length model.values) - 1)]
-        shiftThem = (\(x,y) frm -> move (x, y + 13) frm)
-        texts =  zipWith  shiftThem moves textForms
-        allForms = grid ++ texts ++ forms
+        allForms = grid ++ forms
     in collage w h allForms
 
 -- Signals
