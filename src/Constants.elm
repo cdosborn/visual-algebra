@@ -28,6 +28,7 @@ type UIModel a = { a
                  , index   : Int
                  , history : [Button]
                  , base    : [Button]
+                 , info    : String
                  }
 type GraphModel a = { a
                     | basis : [(Float,Float)]
@@ -45,10 +46,11 @@ model = {
         -- ui part 
         , funs = (A.repeat (length funs) 0)
         , vars = (A.fromList [0,0,0,0,3,3,3]) --  transparent state
-        , meta = (A.fromList [2,2,2,2,0])-- transparent state
+        , meta = (A.fromList [2,2,2,2])-- transparent state
         , index = 0 -- index of expr
         , history = [] -- buffer of buttons which can be undone
         , base = [] -- buffer of commited changes
+        , info = ""
         -- graph part
         , basis  = [(0,40),(0,50),(50,0)]
         , units = 1
@@ -67,15 +69,24 @@ expressions = [ E.Leaf 0
               , E.Leaf 2
               , E.Leaf 3 ]
 
-funs = [ "add", "subtract", "project", "reject", "unit", "scale", "rotate", "trace"]
-meta = [ "save", "undo", "redo", "clear", "?"]
-defs = [ "An atom is the value behind a variable."
-       , "A span is the set of all combinations of a vector or family of vectors"
-       , "A projection is the component of a vector parallel to another vector"
-       , "A rejection is the component of a vector perpendicular to another vector" 
+funs = [ "add", "subtract", "project", "reject", "unit"]--, "scale", "rotate", "trace"]
+meta = [ "save", "undo", "redo", "clear"] --, "?"]
+defs = [ "add a b - returns the sum of a and b"
+       , "subtract a b - returns the difference of a and b" 
+       , "project a b - returns the projection of a onto b\n\nthe projection is the component of the first which is parallel to the second"
+       , "reject a b - returns the rejection of a onto b \n\nthe rejection is the component of the first which is perpendicualar to the second"
+       , "unit a - returns normalized a\n\nthe normal of a vector lies in the same direction with a length of 1"
+       , "scale a - returns all vectors in the family of a with length from 1/2 to 2"
+       , "rotate a b - returns all vectors a rotated about b" 
+       , "trace a - returns the path a vector makes, useful for visualizing rotates, scales"
+       , "save - saves the current expression as a new variable" 
+       , "undo - undoes the last change"
+       , "redo - seriously?" 
+       , "clear - clears the current expression"
+       , "? - provides info about any button"
        ]
 vars = ["a", "b", "c", "d" , "e", "f", "g" {-, "+", "-" -}]
-colors = [blue, purple, red, orange, lightBlue, lightPurple, lightRed, lightOrange]
+colors = [blue, purple, red, green, orange, lightBlue, lightPurple, lightRed, lightGreen,lightOrange]
 
 -- ids
 restState = 0

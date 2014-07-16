@@ -67,32 +67,30 @@ varUpdate varId model =
         expr =  E.replace index model.expr (E.Leaf varId)
         space = exprToSpace expr model.values
         value = V.eval space
-        meta = if value == V.Abyss then model.meta else A.set 0 0 model.meta
-        meta' = if model.expr == E.Empty then meta else A.set 3 0 meta
+        history = (C.Var varId C.Available)::model.history 
     in { model | expr <- expr 
        , index <- index + 1 
        , value <- value 
-       , meta <- meta' 
-       , history <- (C.Var varId C.Available)::model.history }
+       , meta <- getMeta model.meta history expr value model.values
+       , history <- history }
 
 -- Pre: assumes buttonId refers to the id of a variable button
 -- Post: updates model based on the button clicked
 funUpdate funId model =
     let index = model.index -- index of expression to replace value
         funExpr = 
-            if funId == 4 || funId == 5 
+            if funId > 3 && funId < 9 
             then E.Unary funId E.Empty 
             else E.Duo funId E.Empty E.Empty
         expr = E.replace index model.expr funExpr -- replaces directly if possible
         space = exprToSpace expr model.values
         value = V.eval space
-        meta = if value == V.Abyss then model.meta else A.set 0 0 model.meta
-        meta' = if model.expr == E.Empty then meta else A.set 3 0 meta
+        history = (C.Fun funId C.Available)::model.history 
     in { model | expr <- expr 
        , index <- index + 1
        , value <- value 
-       , meta <- meta'
-       , history <- (C.Fun funId C.Available)::model.history }
+       , meta <- getMeta model.meta history expr value model.values
+       , history <- history }
  
 metaUpdate metaId model = 
     let m = { model | history <- (C.Meta metaId C.Available)::model.history } in
@@ -103,9 +101,13 @@ metaUpdate metaId model =
        | otherwise -> model
 
 onSave model =
-    { model | values <- model.values ++ [model.value]
-    , expr <- E.Leaf (length model.values) 
-    , vars <- A.set (length model.values) 0 model.vars }
+    let values = model.values ++ [model.value] 
+    in { model | values <- values
+       , expr <- E.Empty
+       , value <- V.Abyss
+       , index <- 0
+       , vars <- A.set (length model.values) 0 model.vars
+       , meta <- getMeta model.meta model.history E.Empty V.Abyss values }
  
 -- Pre: assumes model.history contains at least [undoButton, aChange]
 -- Post: resets the model to previous state
@@ -116,8 +118,6 @@ onUndo model =
             if dif > 0 -- limit is larger
             then (take (C.historyLimit + 1) model.history, getChanges (drop (C.historyLimit + 1) model.history))
             else (model.history, [])
-        meta' =  if showUndo history then model.meta else A.set 1 2 model.meta 
-        meta'' = if showRedo history then A.set 2 0 meta' else A.set 2 2 meta'
         base = base' ++ model.base
         changes = getChanges (history ++ base) -- reduces history into correct statee
         clickList = repeat (length (changes)) C.Click
@@ -125,7 +125,7 @@ onUndo model =
         m = foldr (\arg modl -> update arg modl) C.model args
     in { m | history <- history 
        , base <- base 
-       , meta <- meta'' 
+       , meta <- getMeta m.meta history m.expr m.value m.values
        , basis <- model.basis
        , units <- model.units}
     --_ -> fail otherwise history should always have 2 on undo
@@ -133,9 +133,11 @@ onUndo model =
 onClear model =
     { model | expr <- E.Empty
     , value <- V.Abyss
-    , index <- 0 }
+    , index <- 0 
+    , meta <- getMeta model.meta model.history E.Empty V.Abyss model.values }
 
 onQuestion model = model
+--    { model | info = get
 
 -- Post: returns length of history, minus initial consecutive undos/redos
 historyLength : [C.Button] -> Int
@@ -161,6 +163,19 @@ showRedoAux history index =
     (C.Meta 1 _)::more-> index == 0 || (showRedoAux more (index - 1))
     (C.Meta 2 _)::more-> showRedoAux more (index + 1)
     _ -> False
+
+showSave values value = 
+    (length values) < 7 && (not (value == V.Abyss))
+
+showClear expr =
+    (not (expr == E.Empty))
+
+getMeta meta history expr value values  =
+    let meta'    = if showUndo history      then A.set 1 0 meta    else A.set 1 2 meta 
+        meta''   = if showRedo history      then A.set 2 0 meta'   else A.set 2 2 meta'
+        meta'''  = if showSave values value then A.set 0 0 meta''  else A.set 0 2 meta''
+        meta'''' = if showClear expr        then A.set 3 0 meta''' else A.set 3 2 meta'''
+    in meta''''
 
 -- Post: irreversibly reduces the history by removing oldest undo/redo
 --       expression to what is currently intended, includes count of undos removed                  
@@ -273,10 +288,10 @@ render (w, h) model =
         , width 700 (leftAligned (T.height 30 (monospace (toText expression))))
         , spacer 10 10
         , width 250 (flow right varButtons)
-        , height 90 (width 250 (flow right funButtons))
-        , height 90 (width 250 (flow right metaButtons))
+        , height 50 (width 250 (flow right funButtons))
+        , (width 250 (flow right metaButtons))
+        , width 250 (leftAligned (T.height 30 (monospace (toText model.info))))
    --   , width 500 (asText model)
-   --   , width 250 funDefinition
      ])
 
 -- Signals
@@ -310,7 +325,10 @@ getButton buttonType buttonState index =
     let name = if | buttonType == 0 -> head (drop index C.funs) -- function
                   | buttonType == 1 -> head (drop index C.vars) -- var
                   | buttonType == 2 -> head (drop index C.meta) -- meta 
-        element = leftAligned (T.height 15 (monospace (toText name)))
+        element =
+            if False--buttonType == 1
+            then leftAligned (T.height 15 (monospace (T.color (head (drop index C.colors)) (toText name))))
+            else leftAligned (T.height 15 (monospace (toText name)))
         w = widthOf element
         h = heightOf element
         linked =  link "#" (container (w + 10) (h + 5) middle element)
@@ -325,44 +343,44 @@ getButton buttonType buttonState index =
     --in hoverable inputs.handle (\bool -> if bool then (C.Hover, sigButton) else (C.None, sigButton)) b
     in b
 
-defsFromExps : [[Int]] -> [Element]
-defsFromExps exps =
-    let len = length exps
-        defs = getDefs (take 7 exps) [] 0
-        elems =  map (\str -> leftAligned (T.height 15 (monospace (toText str)))) (take (len - 1) defs)
-        temp = if len == 8 then []
-               else [opacity 0.5 (leftAligned (T.height 15 (monospace (toText (last defs)))))]
-    in elems ++ temp
+--defsFromExps : [[Int]] -> [Element]
+--defsFromExps exps =
+--    let len = length exps
+--        defs = getDefs (take 7 exps) [] 0
+--        elems =  map (\str -> leftAligned (T.height 15 (monospace (toText str)))) (take (len - 1) defs)
+--        temp = if len == 8 then []
+--               else [opacity 0.5 (leftAligned (T.height 15 (monospace (toText (last defs)))))]
+--    in elems ++ temp
+--
+--getDefs : [[Int]] -> [String] -> Int -> [String]
+--getDefs listOfLists solutions index = 
+--    case listOfLists of
+--    [] -> solutions
+--    front::more -> 
+--        let def = getDef front
+--            var = head (drop index C.vars)
+--            result = var ++ " = " ++ def
+--        in getDefs more (solutions ++ [result]) (index + 1)
+--
+---- Pre: length exp > 0
+--getDef : E.Expr -> String
+--getDef expr index =
+--    let funId = head exp
+--        otherVars = map (\i -> head (drop i C.vars)) (tail exp)
+--        len = length otherVars
+--        funName = head (drop funId C.funs) 
+--        prep = " of "
+--        inBetw = 
+--            if | (funId == 0 || funId == 1) && len > 0 -> concat (intersperse ", " otherVars)
+--               | (funId == 0 || funId == 1) -> "_"
+--               | (funId == 2 || funId == 3) && len > 1 -> head otherVars ++ " onto " ++ (head (tail otherVars))
+--               | (funId == 2 || funId == 3) && len == 1 -> head otherVars ++ " onto _" 
+--               | (funId == 2 || funId == 3) && len == 0 -> "_ onto _" 
+--    in "the " ++ funName ++ prep ++ inBetw 
 
-getDefs : [[Int]] -> [String] -> Int -> [String]
-getDefs listOfLists solutions index = 
-    case listOfLists of
-    [] -> solutions
-    front::more -> 
-        let def = getDef front
-            var = head (drop index C.vars)
-            result = var ++ " = " ++ def
-        in getDefs more (solutions ++ [result]) (index + 1)
-
--- Pre: length exp > 0
-getDef : [Int] -> String
-getDef exp =
-    let funId = head exp
-        otherVars = map (\i -> head (drop i C.vars)) (tail exp)
-        len = length otherVars
-        funName = head (drop funId C.funs) 
-        prep = " of "
-        inBetw = 
-            if | (funId == 0 || funId == 1) && len > 0 -> concat (intersperse ", " otherVars)
-               | (funId == 0 || funId == 1) -> "_"
-               | (funId == 2 || funId == 3) && len > 1 -> head otherVars ++ " onto " ++ (head (tail otherVars))
-               | (funId == 2 || funId == 3) && len == 1 -> head otherVars ++ " onto _" 
-               | (funId == 2 || funId == 3) && len == 0 -> "_ onto _" 
-    in "the " ++ funName ++ prep ++ inBetw 
-
-defFromFun funId =
-    let def = (head (drop funId C.defs))
-    in leftAligned (T.height 15 (monospace (toText def)))
+--defFromFun funId =
+--    let def = (head (drop funId C.defs))
+--    in leftAligned (T.height 15 (monospace (toText def)))
 
 exprToSpace expr values =
     case expr of
@@ -374,6 +392,7 @@ exprToSpace expr values =
            | funId == 5 -> V.Scale s
            | funId == 6 -> V.Rotate s
            | funId == 7 -> V.Trace s
+           | funId == 8 -> V.Abyss
     E.Duo funId a b -> 
         let s1 = exprToSpace a values
             s2 = exprToSpace b values
