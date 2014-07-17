@@ -8,6 +8,7 @@ import Text as T
 import Vector as V
 import Constants as C
 import Expr as E
+import Debug (log)
 
 
 {-
@@ -48,10 +49,9 @@ update (action, button) model =
         C.Fun  index _ -> { model | funs <- A.set index 1 model.funs }
         C.Meta index _ -> { model | meta <- A.set index 1 model.meta }
     C.Click -> 
-        let m = { model | meta <- A.set 1 0 model.meta } in
         case button of
-            C.Var  index _ -> varUpdate  index m
-            C.Fun  index _ -> funUpdate  index m
+            C.Var  index _ -> varUpdate  index model
+            C.Fun  index _ -> funUpdate  index model
             C.Meta index _ -> metaUpdate index model
     C.None -> 
         case button of 
@@ -64,14 +64,11 @@ update (action, button) model =
 -- Post: updates model based on the button clicked
 varUpdate varId model =
     let index = model.index -- index of expression to replace value
-        expr =  E.replace index model.expr (E.Leaf varId)
-        space = exprToSpace expr model.values
-        value = V.eval space
+        expr = E.replace index model.expr (E.Ref varId)
         history = (C.Var varId C.Available)::model.history 
     in { model | expr <- expr 
        , index <- index + 1 
-       , value <- value 
-       , meta <- getMeta model.meta history expr value model.values
+       , meta <- getMeta model.meta history expr model.exprs
        , history <- history }
 
 -- Pre: assumes buttonId refers to the id of a variable button
@@ -79,17 +76,14 @@ varUpdate varId model =
 funUpdate funId model =
     let index = model.index -- index of expression to replace value
         funExpr = 
-            if funId > 3 && funId < 9 
+            if funId > 3 && funId < 7 
             then E.Unary funId E.Empty 
             else E.Duo funId E.Empty E.Empty
         expr = E.replace index model.expr funExpr -- replaces directly if possible
-        space = exprToSpace expr model.values
-        value = V.eval space
         history = (C.Fun funId C.Available)::model.history 
     in { model | expr <- expr 
        , index <- index + 1
-       , value <- value 
-       , meta <- getMeta model.meta history expr value model.values
+       , meta <- getMeta model.meta history expr model.exprs
        , history <- history }
  
 metaUpdate metaId model = 
@@ -97,17 +91,15 @@ metaUpdate metaId model =
     if | metaId == 0 -> onSave m
        | metaId == 1 || metaId == 2 -> onUndo m
        | metaId == 3 -> onClear m
-       | metaId == 4 -> onQuestion model
        | otherwise -> model
 
 onSave model =
-    let values = model.values ++ [model.value] 
-    in { model | values <- values
-       , expr <- E.Empty
-       , value <- V.Abyss
+    let exprs = model.exprs ++ [model.expr]
+    in { model | expr <- E.Empty
+       , exprs <- exprs
        , index <- 0
-       , vars <- A.set (length model.values) 0 model.vars
-       , meta <- getMeta model.meta model.history E.Empty V.Abyss values }
+       , vars <- A.set (length model.exprs) 0 model.vars
+       , meta <- getMeta model.meta model.history E.Empty exprs }
  
 -- Pre: assumes model.history contains at least [undoButton, aChange]
 -- Post: resets the model to previous state
@@ -125,19 +117,19 @@ onUndo model =
         m = foldr (\arg modl -> update arg modl) C.model args
     in { m | history <- history 
        , base <- base 
-       , meta <- getMeta m.meta history m.expr m.value m.values
+       , meta <- getMeta m.meta history m.expr m.exprs
        , basis <- model.basis
        , units <- model.units}
     --_ -> fail otherwise history should always have 2 on undo
 
 onClear model =
     { model | expr <- E.Empty
-    , value <- V.Abyss
     , index <- 0 
-    , meta <- getMeta model.meta model.history E.Empty V.Abyss model.values }
+    , meta <- getMeta model.meta model.history E.Empty model.exprs }
 
-onQuestion model = model
---    { model | info = get
+--onQuestion model =
+--    { model | query <- True
+--    , info <- "select any button to learn about its function" }
 
 -- Post: returns length of history, minus initial consecutive undos/redos
 historyLength : [C.Button] -> Int
@@ -164,17 +156,19 @@ showRedoAux history index =
     (C.Meta 2 _)::more-> showRedoAux more (index + 1)
     _ -> False
 
-showSave values value = 
-    (length values) < 7 && (not (value == V.Abyss))
+showSave : E.Expr -> [E.Expr] -> Bool
+showSave expr exprs = 
+    (length exprs) < 7 && (not ((V.eval (C.exprToSpace expr exprs C.values)) == V.Abyss))
 
+showClear : E.Expr -> Bool
 showClear expr =
     (not (expr == E.Empty))
 
-getMeta meta history expr value values  =
-    let meta'    = if showUndo history      then A.set 1 0 meta    else A.set 1 2 meta 
-        meta''   = if showRedo history      then A.set 2 0 meta'   else A.set 2 2 meta'
-        meta'''  = if showSave values value then A.set 0 0 meta''  else A.set 0 2 meta''
-        meta'''' = if showClear expr        then A.set 3 0 meta''' else A.set 3 2 meta'''
+getMeta meta history expr exprs =
+    let meta'    = if showUndo history    then A.set 1 0 meta    else A.set 1 2 meta 
+        meta''   = if showRedo history    then A.set 2 0 meta'   else A.set 2 2 meta'
+        meta'''  = if showSave expr exprs then A.set 0 0 meta''  else A.set 0 2 meta''
+        meta'''' = if showClear expr      then A.set 3 0 meta''' else A.set 3 2 meta'''
     in meta''''
 
 -- Post: irreversibly reduces the history by removing oldest undo/redo
@@ -288,10 +282,12 @@ render (w, h) model =
         , width 700 (leftAligned (T.height 30 (monospace (toText expression))))
         , spacer 10 10
         , width 250 (flow right varButtons)
-        , height 50 (width 250 (flow right funButtons))
-        , (width 250 (flow right metaButtons))
-        , width 250 (leftAligned (T.height 30 (monospace (toText model.info))))
-   --   , width 500 (asText model)
+        , height 69 (width 250 (flow right funButtons))
+        , height 46 (width 250 (flow right metaButtons))
+        --, (spacer 5 1) `beside` (width 250 (leftAligned (T.height 15 (monospace (toText model.info)))))
+--      , width 500 (asText model)
+--      , width 500 (asText model.expr)
+--      , width 500 (asText model.exprs)
      ])
 
 -- Signals
@@ -362,41 +358,14 @@ getButton buttonType buttonState index =
 --            result = var ++ " = " ++ def
 --        in getDefs more (solutions ++ [result]) (index + 1)
 --
----- Pre: length exp > 0
---getDef : E.Expr -> String
---getDef expr index =
---    let funId = head exp
---        otherVars = map (\i -> head (drop i C.vars)) (tail exp)
---        len = length otherVars
---        funName = head (drop funId C.funs) 
---        prep = " of "
---        inBetw = 
---            if | (funId == 0 || funId == 1) && len > 0 -> concat (intersperse ", " otherVars)
---               | (funId == 0 || funId == 1) -> "_"
---               | (funId == 2 || funId == 3) && len > 1 -> head otherVars ++ " onto " ++ (head (tail otherVars))
---               | (funId == 2 || funId == 3) && len == 1 -> head otherVars ++ " onto _" 
---               | (funId == 2 || funId == 3) && len == 0 -> "_ onto _" 
---    in "the " ++ funName ++ prep ++ inBetw 
+-- Pre: length exp > 0
+--getInfo : C.Button -> [E.Expr] -> String
+--getInfo b exprs = 
+--    case b of
+--    C.Fun index _ -> head (drop index C.defs)
+--    C.Meta index _ -> head (drop (index + (length C.funs)) C.defs) 
+--    C.Var index _ -> 
+--        let name = head (drop index C.vars) 
+--        in name ++ " = " ++ (E.toString C.funs C.vars (head (drop index exprs)))
 
---defFromFun funId =
---    let def = (head (drop funId C.defs))
---    in leftAligned (T.height 15 (monospace (toText def)))
 
-exprToSpace expr values =
-    case expr of
-    E.Empty -> V.Abyss
-    E.Leaf varId -> values |> drop varId 
-                           |> head
-    E.Unary funId e -> let s = exprToSpace e values in
-        if | funId == 4 -> V.Unit s
-           | funId == 5 -> V.Scale s
-           | funId == 6 -> V.Rotate s
-           | funId == 7 -> V.Trace s
-           | funId == 8 -> V.Abyss
-    E.Duo funId a b -> 
-        let s1 = exprToSpace a values
-            s2 = exprToSpace b values
-        in if | funId == 0 -> V.Add s1 s2
-              | funId == 1 -> V.Subtract s1 s2
-              | funId == 2 -> V.Project s1 s2
-              | funId == 3 -> V.Reject s1 s2

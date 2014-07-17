@@ -10,6 +10,7 @@ import Constants as C
 import Drag
 import Expr as E
 import Vector as V
+import Debug (log)
 
 {-
     TODO:
@@ -47,8 +48,19 @@ update s model =
         b1' = V.rotate' b1 (C.velocity * delta / 1000)
         b2' =  b2
         b3' = V.rotate' b3 (C.velocity * delta / 1000)
-    in { model | basis <- [b1',b2',b3'] }
+        theta = model.theta + (C.velocity * delta / 1000)
+    in { model | basis <- [b1',b2',b3'] 
+       , theta <- theta }
 
+mutate theta exprs values = mutateHelper theta exprs values 4
+
+mutateHelper theta exprs values index =
+    if index == (length exprs)
+    then values
+    else 
+        let e = head (drop index exprs)
+            v = V.mEval theta (C.exprToSpace e exprs values)
+        in mutateHelper theta exprs (values++[v]) (index + 1)
 
 -- Render
 render (w, h) model = 
@@ -57,14 +69,18 @@ render (w, h) model =
                , (V.Vector 0 1 0, greyscale 0.3, Nothing)
                , (V.Vector 0 0 1, greyscale 0.3, Nothing)
                ]
-        values = model.values
-        spaces = if model.value == V.Abyss 
-                 then map (\i -> (head (drop i values), head (drop i C.colors), Just (head (drop i C.vars)))) [0 .. ((length model.values) - 1)]
-                 else [(model.value, (head (drop (length values) C.colors)), Nothing)]
+        theta = model.theta
+        values = mutate theta model.exprs C.values
+        value  = V.mEval theta (C.exprToSpace model.expr model.exprs values)
+        spaces = map (\i -> (head (drop i values), head (drop i C.colors), Just (head (drop i C.vars)))) [0 .. ((length model.exprs) - 1)]
+        undefined =  if value == V.Abyss 
+                     then []
+                     else [(value, (head (drop (length model.exprs) C.colors)), Nothing)]
         -- sortGeoms when geoms change
-        forms = map (\(s, col, label) -> (V.draw basis model.units label col s)) (spaces ++ axis)
+        forms = map (\(s, col, label) -> (V.draw basis model.units label col s)) (spaces ++ undefined ++ axis)
         grid = V.drawGrid basis model.units
-        allForms = grid ++ forms
+--      msg = [toForm (asText values)]
+        allForms = grid ++ forms --++ msg
     in collage w h allForms
 
 -- Signals

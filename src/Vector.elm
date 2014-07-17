@@ -18,36 +18,64 @@ data Space = Abyss
            | Project Space Space 
            | Reject Space Space 
            | Unit Space 
+           | Negate Space
            | Scale Space
-           | Rotate Space
+           | Rotate Space Space
            | Trace Space
 
 -- Pre: takes list of spaces, ignoring non-vector spaces
 -- Post: Returns the space represented by the span of vector spaces
 eval : Space -> Space 
-eval exp = case exp of
-            Vector a b c -> exp
-            Unit s -> unit (eval s)
-            Add s1 s2 -> add (eval s1) (eval s2)
-            Subtract s1 s2 -> subtract (eval s1) (eval s2)
-            Project s1 s2 -> case (eval s1) of
-                Vector a b c -> (case (eval s2) of
-                Vector d e f -> (Vector a b c) `project` (Vector d e f)
-                _ -> Abyss)
-                _ -> Abyss
-            Reject s1 s2 -> case (eval s1) of
-                Vector a b c -> (case (eval s2) of
-                Vector d e f -> (Vector a b c) `reject` (Vector d e f)
-                _ -> Abyss)
-                _ -> Abyss
-            _ -> Abyss
-            --Span x::xs -> independent 
-            --Span (Vector a b c) (Plane (Vector d e f) (Vector g h i)) -> 
-          --Perpendicular a b -> Vector 0 0 0 
-          --Parallel a b -> Vector 0 0 0
-          --Intersection a b -> Vector 0 0 0
-          --Sum a b -> Vector 0 0 0
-          --Difference a b -> Vector 0 0 0
+eval s = 
+    case s of
+    Vector a b c -> s
+    Unit a -> unit (eval a)
+    Scale a -> eval a
+    Rotate a b -> eval a
+    Negate a -> scale (eval a) -1
+    Add a b -> add (eval a) (eval b)
+    Subtract a b -> subtract (eval a) (eval b)
+    Project a b -> case (eval a) of
+        Vector c d e -> (case (eval b) of
+        Vector f g h -> (Vector c d e) `project` (Vector f g h)
+        _ -> Abyss)
+        _ -> Abyss
+    Reject a b -> case (eval a) of
+        Vector c d e -> (case (eval b) of
+        Vector f g h -> (Vector c d e) `reject` (Vector f g h)
+        _ -> Abyss)
+        _ -> Abyss
+    _ -> Abyss
+
+mEval : Float -> Space -> Space 
+mEval theta s = let theta' = theta * 10 in
+    case s of
+    Vector a b c -> s
+    Unit a -> unit (mEval theta a)
+    Scale a -> scale (mEval theta a) (cos theta')
+    Rotate a b ->
+        let a' = mEval theta a
+            b' = unit (mEval theta b)
+        in case b' `dot` a' of
+            Nothing -> Abyss
+            Just dotp -> 
+                (scale a' (cos theta')) 
+                `add` (scale (b' `cross` a') (sin theta'))
+                `add` (scale (scale b' dotp) (1 - (cos theta')))
+    Negate a -> scale (mEval theta a) -1
+    Add a b -> add (mEval theta a) (mEval theta b)
+    Subtract a b -> subtract (mEval theta a) (mEval theta b)
+    Project a b -> case (mEval theta a) of
+        Vector c d e -> (case (mEval theta b) of
+        Vector f g h -> (Vector c d e) `project` (Vector f g h)
+        _ -> Abyss)
+        _ -> Abyss
+    Reject a b -> case (mEval theta a) of
+        Vector c d e -> (case (mEval theta b) of
+        Vector f g h -> (Vector c d e) `reject` (Vector f g h)
+        _ -> Abyss)
+        _ -> Abyss
+    _ -> Abyss
 
 ---- Pre: takes list of spaces, ignoring non-vector spaces
 ---- Post: Returns the space represented by the span of vector spaces
@@ -82,6 +110,8 @@ draw : [(Float,Float)] -> Float -> Maybe String -> Color -> Space -> Form
 draw basis units label col space = 
     case space of
     Vector a b c -> drawVector basis label col space 
+    Scale a -> draw basis units label col a
+    Rotate a b -> draw basis units label col a
 --  Line a -> drawLine basis units lightCol a  
 --  Plane vs -> drawPlane basis units lightCol vs 
 --  Volume -> drawVolume basis units lightCol
@@ -130,6 +160,17 @@ getBasis vectors basis =
 --        one::two::three::[] -> let partOfBasis = getOrthoBasis [one, two]  
 --            in (three `reject` (Plane partOfBasis))::partOfBasis
 
+cross : Space -> Space -> Space
+cross a b =
+    case a of
+    Vector a1 a2 a3 -> (case b of
+    Vector b1 b2 b3 -> 
+        let c1 = (a2*b3 - a3*b2)
+            c2 = (a3*b1 - a1*b3)
+            c3 = (a1*b2 - a2*b1) 
+        in Vector c1 c2 c3
+    _ -> Abyss)
+    _ -> Abyss
 
 -- Pre: Assumes first can be projectable onto the second (ex. vectors onto planes | vectors)
 -- Post: Returns the complement of the vector projection (rejection), returns Abyss if not vectors
@@ -143,8 +184,10 @@ reject v1 v2 = case v1 of
 project : Space -> Space -> Space
 project v1 v2 = case v1 of
     Vector a b c -> (case v2 of
-    Vector d e f -> let scalar = (v1 `dot` v2)/(d*d+e*e+f*f)
-                    in scale v2 scalar
+    Vector d e f -> let dotp = v1 `dot` v2
+                    in case dotp of
+                    Nothing -> Abyss
+                    Just dotp -> scale v2 (dotp/(d*d+e*e+f*f))
 --  Plane vs -> let basis = getOrthoBasis vs
 --                  b1 = head basis
 --                  b2 = last basis
@@ -154,10 +197,12 @@ project v1 v2 = case v1 of
 
 -- Pre: Assumes two arguments are Vector spaces
 -- Post: Returns dot product of vectors, fails if not vectors
-dot : Space -> Space -> Float
+dot : Space -> Space -> Maybe Float
 dot v1 v2 = case v1 of
-    Vector a b c -> case v2 of
-    Vector d e f -> a*d + b*e + c*f
+    Vector a b c -> (case v2 of
+    Vector d e f -> Just (a*d + b*e + c*f)
+    _ -> Nothing)
+    _ -> Nothing
 
 -- Pre: Assumes two arguments are Vector spaces
 -- Post: Returns vector difference of vectors, returns Abyss if not vectors

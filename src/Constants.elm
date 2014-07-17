@@ -4,6 +4,7 @@ import Array as A
 
 import Expr as E
 import Vector as V
+import Debug (log)
 
 
 {-
@@ -28,11 +29,11 @@ type UIModel a = { a
                  , index   : Int
                  , history : [Button]
                  , base    : [Button]
-                 , info    : String
                  }
 type GraphModel a = { a
                     | basis : [(Float,Float)]
                     , units : Float 
+                    , theta : Float
                     }
 type Model = (UIModel (GraphModel (SharedModel {})))
 
@@ -44,16 +45,16 @@ model = {
         , exprs = expressions -- list of var expr
         , values = values -- list of vectors behind all expressions
         -- ui part 
-        , funs = (A.repeat (length funs) 0)
-        , vars = (A.fromList [0,0,0,0,3,3,3]) --  transparent state
-        , meta = (A.fromList [2,2,2,2])-- transparent state
+        , funs = (A.fromList [0,0,0,0,0,0,0,0])
+        , vars = (A.fromList [0,0,0,0,3,3,3])
+        , meta = (A.fromList [2,2,2,2])
         , index = 0 -- index of expr
         , history = [] -- buffer of buttons which can be undone
         , base = [] -- buffer of commited changes
-        , info = ""
         -- graph part
-        , basis  = [(0,40),(0,50),(50,0)]
+        , basis  = [(0,40),(0,40),(40,0)]
         , units = 1
+        , theta = 0 -- determines rotation and scaling
         }
 
 historyLimit = 20
@@ -61,24 +62,25 @@ velocity = pi/40
 fps = 30
 values = [ V.Vector 1 1 1
          , V.Vector 2 1 2
-         , V.Vector 3 3 0
+         , V.Vector 0.4 0.6 0
          , V.Vector 1 0 2 ]
 
-expressions = [ E.Leaf 0
-              , E.Leaf 1
-              , E.Leaf 2
-              , E.Leaf 3 ]
+expressions = [ E.Val 0
+              , E.Val 1
+              , E.Val 2
+              , E.Val 3 ]
 
-funs = [ "add", "subtract", "project", "reject", "unit"]--, "scale", "rotate", "trace"]
-meta = [ "save", "undo", "redo", "clear"] --, "?"]
+funs = [ "add", "subtract", "project", "reject", "unit", "negate", "scale", "rotate"]--, "trace"]
+meta = [ "save", "undo", "redo", "clear"]
 defs = [ "add a b - returns the sum of a and b"
        , "subtract a b - returns the difference of a and b" 
-       , "project a b - returns the projection of a onto b\n\nthe projection is the component of the first which is parallel to the second"
-       , "reject a b - returns the rejection of a onto b \n\nthe rejection is the component of the first which is perpendicualar to the second"
-       , "unit a - returns normalized a\n\nthe normal of a vector lies in the same direction with a length of 1"
-       , "scale a - returns all vectors in the family of a with length from 1/2 to 2"
-       , "rotate a b - returns all vectors a rotated about b" 
-       , "trace a - returns the path a vector makes, useful for visualizing rotates, scales"
+       , "project a b - returns the projection of a onto b\nthe projection is the component of the first which is parallel to the second"
+       , "reject a b - returns the rejection of a onto b \nthe rejection is the component of the first which is perpendicualar to the second"
+       , "unit a - returns normalized a\nthe normal of a vector lies in the same direction with a length of 1"
+       , "negate a - returns a scaled by -1"
+--     , "scale a - returns all vectors in the family of a with length from 1/2 to 2"
+--     , "rotate a b - returns all vectors a rotated about b" 
+--     , "trace a - returns the path a vector makes, useful for visualizing rotates, scales"
        , "save - saves the current expression as a new variable" 
        , "undo - undoes the last change"
        , "redo - seriously?" 
@@ -93,3 +95,23 @@ restState = 0
 hoverState = 1
 clickState = 2
 hideState = 3
+
+exprToSpace expr exprs values =
+    case expr of
+    E.Empty -> V.Abyss
+    E.Val valId -> head (drop valId values)
+    E.Ref varId -> exprToSpace (head (drop varId exprs)) exprs values
+--  E.Ref varId -> head (drop varId values)
+    E.Unary funId e -> let s = exprToSpace e exprs values in
+        if | funId == 4 -> V.Unit s
+           | funId == 5 -> V.Negate s
+           | funId == 6 -> V.Scale s
+           | funId == 8 -> V.Trace s
+    E.Duo funId a b -> 
+        let s1 = exprToSpace a exprs values
+            s2 = exprToSpace b exprs values
+        in if | funId == 0 -> V.Add s1 s2
+              | funId == 1 -> V.Subtract s1 s2
+              | funId == 2 -> V.Project s1 s2
+              | funId == 3 -> V.Reject s1 s2
+              | funId == 7 -> V.Rotate s1 s2

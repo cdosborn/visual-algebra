@@ -2,34 +2,29 @@ module Expr where
 
 {-
     TODO:
-    factor out replace****
-    replace Node with Unary Int Expr, and Duo Int Expr Expr
-        this is important because in setNodeExpr, replacing
-        a subtract(a,b) with unit, yields unit(a,b) which
-        is impossible
-    setNodeExpr should throw error, see comment
 -}
 
 -- Expr is used to model expressions composed of sub-expressions or values
 --      a Leaf is a value reference, a Unary or Duo are fun references
 --      that contain subexpressions
-data Expr = Empty | Leaf Int | Unary Int Expr | Duo Int Expr Expr
+data Expr = Empty | Val Int | Ref Int | Unary Int Expr | Duo Int Expr Expr
  
 toString : [String] -> [String] -> Expr -> String
-toString funIndex valIndex expr = 
+toString funIndex varIndex expr = 
     case expr of
     Empty -> "_"
-    Leaf i -> head (drop i valIndex)
+    Ref i -> head (drop i varIndex)
     Unary i e -> 
         let funName = head (drop i funIndex)
-            child = (toString funIndex valIndex) e
-        in funName ++ "( " ++ child ++ " )"
+            child = (toString funIndex varIndex) e
+        in funName ++ "(" ++ child ++ ")"
     Duo i a b ->
         let funName = head (drop i funIndex)
-            children = (a |> toString funIndex valIndex)
-                       ++ ", " ++
-                       (b |> toString funIndex valIndex)
-        in funName ++ "( " ++ children ++ " )"
+            children = (a |> toString funIndex varIndex)
+                       ++ " " ++
+                       (b |> toString funIndex varIndex)
+        in funName ++ "(" ++ children ++ ")"
+-- fail if trying to make Val int into a string
 
 ---- assumes format of lst
 ---- lst = [funId, argId ...]
@@ -38,7 +33,7 @@ toString funIndex valIndex expr =
 --fromList lst = 
 --    let funId = head lst
 --        args = tail lst 
---        leaves = map (\int -> Leaf int) (tail lst)
+--        leaves = map (\int -> Val int) (tail lst)
 --    in Node funId leaves
 
 -- ensures that the inserted node in replace,
@@ -60,8 +55,9 @@ replace : Int -> Expr -> Expr -> Expr
 replace pos tree expr =
     if pos == 0 
     then setExpr tree expr
-    else case tree of -- search tree until pos == 0                                                        
-        Leaf _ -> tree -- nowhere to go, invalid pos                                                       
+    else case tree of -- search tree until pos == 0
+        Val _ -> tree -- nowhere to go, invalid pos
+        Ref _ -> tree -- nowhere to go, invalid pos
         Unary funId e -> Unary funId (replace (pos - 1) e expr)
         Duo funId a b -> let depthOfA = count a in
             if depthOfA >= pos 
@@ -74,7 +70,8 @@ count : Expr -> Int
 count tree = 
     case tree of
     Empty -> 1
-    Leaf _ -> 1
+    Val _ -> 1
+    Ref _ -> 1
     Unary _ e -> 1 + (count e)
     Duo _ a b -> 1 + (count a) + (count b)
                                                                                 
