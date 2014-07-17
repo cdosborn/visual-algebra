@@ -70,16 +70,18 @@ render (w, h) model =
                , (V.Vector 0 0 1, greyscale 0.3, Nothing)
                ]
         theta = model.theta
-        values = mutate theta model.exprs C.values
-        value  = V.mEval theta (C.exprToSpace model.expr model.exprs values)
-        spaces = map (\i -> (head (drop i values), head (drop i C.colors), Just (head (drop i C.vars)))) [0 .. ((length model.exprs) - 1)]
-        undefined =  if value == V.Abyss 
-                     then []
-                     else [(value, (head (drop (length model.exprs) C.colors)), Nothing)]
+        exprs = model.exprs
+        expr = model.expr
+        values = mutate theta exprs C.values
+        value  = V.mEval theta (C.exprToSpace expr exprs values)
+        getSpaces = (\ids -> map (\i -> (head (drop i values), head (drop i C.colors), Just (head (drop i C.vars)))) ids)
+        allSpaces = if value == V.Abyss 
+                    then getSpaces [0 .. ((length exprs) - 1)]
+                    else [(value, (head (drop (length exprs) C.colors)), Nothing)] ++ (getSpaces (E.getDependencies expr))
         -- sortGeoms when geoms change
-        forms = map (\(s, col, label) -> (V.draw basis model.units label col s)) (spaces ++ undefined ++ axis)
+        forms = map (\(s, col, label) -> (V.draw basis model.units label col s)) (allSpaces ++ axis)
         grid = V.drawGrid basis model.units
---      msg = [toForm (asText values)]
+--      msg = [toForm (asText value)]
         allForms = grid ++ forms --++ msg
     in collage w h allForms
 

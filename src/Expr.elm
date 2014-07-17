@@ -26,15 +26,15 @@ toString funIndex varIndex expr =
         in funName ++ "(" ++ children ++ ")"
 -- fail if trying to make Val int into a string
 
----- assumes format of lst
----- lst = [funId, argId ...]
----- lst must contain at least funId
---fromList : [Int] -> Expr
---fromList lst = 
---    let funId = head lst
---        args = tail lst 
---        leaves = map (\int -> Val int) (tail lst)
---    in Node funId leaves
+getDependencies expr = getDependenciesHelper expr []
+getDependenciesHelper expr solutions =
+    case expr of
+    Empty -> solutions
+    Val i -> solutions
+    Ref i -> i::solutions
+    Unary i e -> getDependenciesHelper e solutions
+    Duo i a b -> getDependenciesHelper b (getDependenciesHelper a solutions)
+
 
 -- ensures that the inserted node in replace,
 -- uses the previous exprs arguments.
