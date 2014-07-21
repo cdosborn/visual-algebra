@@ -1,6 +1,7 @@
 import Window
 import Mouse
 import Either
+import Time
 
 import Constants as C
 import Ui
@@ -13,8 +14,6 @@ import Debug (log)
     what it needs from the model.
 
     TODO:
-    evalSpan handles span of no arguments should just return an abyss
-    handling functions with incorrect arguments..
     correct sorting of geoms
     visual-algebra intro screen with vowels floating around
     color-coordination between vector and button highlight
@@ -22,22 +21,26 @@ import Debug (log)
 
 -}
 
-main = render <~ graph ~ ui
+-- Display app 
+main = scene <~ graph ~ ui
 
--- Model
---defined in Constants as C.model
+-- Draw each module, communicate between graph/ui
+ui = Ui.render <~ Window.dimensions 
+                ~ Ui.state
 
--- Update
-ui = Ui.render <~ Window.dimensions ~ Ui.state
 graph = Graph.render <~ Window.dimensions 
-                      ~ (addUiStateToGraph <~ Ui.state 
-                                            ~ Graph.state)
+                      ~ (graphFromUi <~ Graph.state ~ Ui.state)
+--                    ~ graphState
 
-addUiStateToGraph u g = { g | expr <- u.expr, exprs <- u.exprs }
+--graphState = foldp Graph.update C.model graphSignal
+--graphSignal = (ui time -> { expr <- u.expr, exprs <- u.exprs, time <- time }) 
+--                <~ Ui.state
+--                 ~ foldp (+) 0 (fps C.fps)
+graphFromUi g u = { g | expr <- u.expr, exprs <- u.exprs }
 
--- Render
-render : Element -> Element -> Element
-render g u = 
+-- Combine drawings
+scene : Element -> Element -> Element
+scene g u = 
      layers [ g, u ]
 
 

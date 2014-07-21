@@ -1,5 +1,6 @@
 module Vector where
 import Text as T
+import Debug (log)
 
 {-
     TODO:
@@ -30,8 +31,8 @@ eval s =
     case s of
     Vector a b c -> s
     Unit a -> unit (eval a)
-    Scale a -> eval a
-    Rotate a b -> eval a
+    Scale a -> Scale (eval a)
+    Rotate a b -> Rotate (eval a) (eval b)
     Negate a -> scale (eval a) -1
     Add a b -> add (eval a) (eval b)
     Subtract a b -> subtract (eval a) (eval b)
@@ -76,6 +77,60 @@ mEval theta s = let theta' = theta * 10 in
         _ -> Abyss)
         _ -> Abyss
     _ -> Abyss
+
+modF a b =
+   if a > b 
+   then modF (a - b) b
+   else a
+
+sortSpaces : Float -> [(Space, Color, Maybe String)] -> [(Space, Color, Maybe String)]
+sortSpaces theta spaces =
+    let angle = theta `modF` (pi*2)
+        quadrants = map addQuadrant spaces 
+    in map (\(v,c,l,q) -> (v,c,l)) (sortWith (compareQuadrants angle) quadrants)
+
+compareQuadrants angle (a,b,c,quad1) (d,e,f,quad2) =
+    if | quad1 == quad2 -> compareSameQuadrant angle a d
+       | quad1 <= 4 && quad2 >  4 -> GT
+       | quad1 >  4 && quad1 <= 4 -> LT
+       | True -> let (q1, q2) = ((quad1 `mod` 4) + 1,(quad2 `mod` 4) + 1) in -- on same quadrant level upper or lower 4
+        if | angle < (pi*1/2) -> (if | q1 == 3 || q2 == 1 -> GT
+                                     | q2 == 3 || q1 == 1 -> LT
+                                     | True -> EQ)
+           | angle < pi     -> (if | q1 == 2 || q2 == 4 -> GT
+                                   | q2 == 2 || q1 == 4 -> LT
+                                   | True -> EQ)
+           | angle < pi*3/2 -> (if | q1 == 1 || q2 == 3 -> GT
+                                   | q2 == 1 || q1 == 3 -> LT
+                                   | True -> EQ)
+           | angle < pi*2   -> (if | q1 == 4 || q2 == 2 -> GT
+                                   | q2 == 4 || q1 == 2 -> LT
+                                   | True -> EQ)
+           | True -> EQ
+
+compareSameQuadrant angle a b = EQ
+--  case a of
+--  Vector a1 a2 a3 -> (case b of
+--  Vector b1 b2 b3 ->  
+
+        
+-- explodes if not passed a vector
+addQuadrant (vec, col, mlabel) =
+    case vec of
+    Vector x y z -> 
+    let q = 
+        if z >= 0
+        then 
+            if | x >= 0 && y >= 0 -> 1
+               | x <  0 && y >= 0 -> 2
+               | x <  0 && y <  0 -> 3
+               | x >= 0 && y <  0 -> 4
+        else 
+            if | x >= 0 && y >= 0 -> 5
+               | x <  0 && y >= 0 -> 6
+               | x <  0 && y <  0 -> 7
+               | x >= 0 && y <  0 -> 8
+    in (vec, col, mlabel, q)
 
 ---- Pre: takes list of spaces, ignoring non-vector spaces
 ---- Post: Returns the space represented by the span of vector spaces

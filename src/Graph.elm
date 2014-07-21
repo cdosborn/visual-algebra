@@ -36,7 +36,20 @@ main = render <~ Window.dimensions ~ state
 state = foldp update C.model signals
 
 -- Model
+
+model = { delta = 0
+        , space = V.Abyss
+        , spaces = [V.Abyss]
+        , basis  = [(0,40),(40,0),(0,40)] }
 --defined in Constants as C.model
+--filter : C.Model -> {expr:E.Expr, exprs:[E.Expr]}
+--filter m = 
+--    { expr <- u.expr
+--    , exprs <- u.exprs 
+--    , mexpr <- mexpr
+--    , mexprs <- mexprs
+--    }
+--
 
 -- Update
 update : Inputs -> C.Model -> C.Model
@@ -46,13 +59,13 @@ update s model =
         b2 = head (tail model.basis)
         b3 = head (tail (tail model.basis))
         b1' = V.rotate' b1 (C.velocity * delta / 1000)
-        b2' =  b2
-        b3' = V.rotate' b3 (C.velocity * delta / 1000)
-        theta = model.theta + (C.velocity * delta / 1000)
+        b2' = V.rotate' b2 (C.velocity * delta / 1000)
+        b3' =  b3
+        theta = model.theta + (C.omega * delta / 1000)
     in { model | basis <- [b1',b2',b3'] 
        , theta <- theta }
 
-mutate theta exprs values = mutateHelper theta exprs values 4
+mutate theta exprs values = mutateHelper theta exprs values (length C.values)
 
 mutateHelper theta exprs values index =
     if index == (length exprs)
@@ -65,7 +78,7 @@ mutateHelper theta exprs values index =
 -- Render
 render (w, h) model = 
     let basis = model.basis
-        axis = [ (V.Vector 1 0 0, greyscale 0.3, Nothing)
+        axis = [ (V.Vector 1 0 0, greyscale 0.3, Nothing) -- (value, color, maybe label)
                , (V.Vector 0 1 0, greyscale 0.3, Nothing)
                , (V.Vector 0 0 1, greyscale 0.3, Nothing)
                ]
@@ -78,10 +91,10 @@ render (w, h) model =
         allSpaces = if value == V.Abyss 
                     then getSpaces [0 .. ((length exprs) - 1)]
                     else [(value, (head (drop (length exprs) C.colors)), Nothing)] ++ (getSpaces (E.getDependencies expr))
-        -- sortGeoms when geoms change
-        forms = map (\(s, col, label) -> (V.draw basis model.units label col s)) (allSpaces ++ axis)
+        sorted = (axis ++ allSpaces)--V.sortSpaces theta (axis ++ allSpaces)
+        forms = map (\(s, col, label) -> (V.draw basis model.units label col s)) sorted
         grid = V.drawGrid basis model.units
---      msg = [toForm (asText value)]
+--      msg = [toForm (asText theta)]
         allForms = grid ++ forms --++ msg
     in collage w h allForms
 
@@ -93,16 +106,3 @@ render (w, h) model =
 type Inputs = Time
 signals : Signal Inputs
 signals = fps C.fps
---
---
---randColorSeed = Random.float (constant 4)
---getRandColors seed =
---    let many = 5
---        start = seed * 100
---        delta = pi / (20 * (toFloat many))
---    in map (\i -> hsl (start + delta * (toFloat i)) 1 0.3) [1 .. many]
---
---randColors : Signal [Color]
---randColors = lift getRandColors randColorSeed
---main = lift2 render signals (foldp brain model signals)
---

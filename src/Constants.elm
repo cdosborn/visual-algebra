@@ -4,7 +4,6 @@ import Array as A
 
 import Expr as E
 import Vector as V
-import Debug (log)
 
 
 {-
@@ -52,22 +51,23 @@ model = {
         , history = [] -- buffer of buttons which can be undone
         , base = [] -- buffer of commited changes
         -- graph part
-        , basis  = [(0,40),(0,40),(40,0)]
+        , basis  = [(0,40),(40,0),(0,40)]
         , units = 1
         , theta = 0 -- determines rotation and scaling
         }
 
 historyLimit = 20
-velocity = pi/40
+velocity = pi/4
+omega = pi/10
 fps = 30
 values = [ V.Vector 1 1 1
-         , V.Vector 2 1 2
-         , V.Vector 0.4 0.6 0
-         , V.Vector 1 0 2 ]
+         , V.Vector -1 2 4
+         , V.Vector -1 -1 4 
+         , V.Vector 1 -1 2 ]
 
 expressions = [ E.Val 0
               , E.Val 1
-              , E.Val 2
+              , E.Val 2 
               , E.Val 3 ]
 
 funs = [ "add", "subtract", "project", "reject", "unit", "negate", "scale", "rotate"]--, "trace"]
@@ -90,18 +90,11 @@ defs = [ "add a b - returns the sum of a and b"
 vars = ["a", "b", "c", "d" , "e", "f", "g" {-, "+", "-" -}]
 colors = [blue, purple, red, green, orange, lightBlue, lightPurple, lightRed, lightGreen,lightOrange]
 
--- ids
-restState = 0
-hoverState = 1
-clickState = 2
-hideState = 3
-
 exprToSpace expr exprs values =
     case expr of
     E.Empty -> V.Abyss
     E.Val valId -> head (drop valId values)
     E.Ref varId -> exprToSpace (head (drop varId exprs)) exprs values
---  E.Ref varId -> head (drop varId values)
     E.Unary funId e -> let s = exprToSpace e exprs values in
         if | funId == 4 -> V.Unit s
            | funId == 5 -> V.Negate s
