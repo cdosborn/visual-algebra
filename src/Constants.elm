@@ -44,22 +44,24 @@ model = {
         , exprs = expressions -- list of var expr
         , values = values -- list of vectors behind all expressions
         -- ui part 
-        , funs = (A.fromList [0,0,0,0,0,0,0,0])
-        , vars = (A.fromList [0,0,0,0,3,3,3])
-        , meta = (A.fromList [2,2,2,2])
+        , funs = A.repeat 8 0
+        , vars = A.fromList [0,0,0,0,3,3,3] 
+        , meta = A.fromList [2,2,2,2]
         , index = 0 -- index of expr
         , history = [] -- buffer of buttons which can be undone
         , base = [] -- buffer of commited changes
         -- graph part
-        , basis  = [(0,40),(40,0),(0,40)]
+        , basis  = basis
         , units = 1
         , theta = 0 -- determines rotation and scaling
         }
 
+units = 1.0
+basis  = [(0,40),(40,0),(0,40)]
 historyLimit = 20
-velocity = pi/4
+velocity = pi/10
 omega = pi/10
-fps = 30
+fps = 700
 values = [ V.Vector 1 1 1
          , V.Vector -1 2 4
          , V.Vector -1 -1 4 
@@ -90,21 +92,4 @@ defs = [ "add a b - returns the sum of a and b"
 vars = ["a", "b", "c", "d" , "e", "f", "g" {-, "+", "-" -}]
 colors = [blue, purple, red, green, orange, lightBlue, lightPurple, lightRed, lightGreen,lightOrange]
 
-exprToSpace expr exprs values =
-    case expr of
-    E.Empty -> V.Abyss
-    E.Val valId -> head (drop valId values)
-    E.Ref varId -> exprToSpace (head (drop varId exprs)) exprs values
-    E.Unary funId e -> let s = exprToSpace e exprs values in
-        if | funId == 4 -> V.Unit s
-           | funId == 5 -> V.Negate s
-           | funId == 6 -> V.Scale s
-           | funId == 8 -> V.Trace s
-    E.Duo funId a b -> 
-        let s1 = exprToSpace a exprs values
-            s2 = exprToSpace b exprs values
-        in if | funId == 0 -> V.Add s1 s2
-              | funId == 1 -> V.Subtract s1 s2
-              | funId == 2 -> V.Project s1 s2
-              | funId == 3 -> V.Reject s1 s2
-              | funId == 7 -> V.Rotate s1 s2
+

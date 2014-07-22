@@ -29,14 +29,17 @@ ui = Ui.render <~ Window.dimensions
                 ~ Ui.state
 
 graph = Graph.render <~ Window.dimensions 
-                      ~ (graphFromUi <~ Graph.state ~ Ui.state)
---                    ~ graphState
+                      ~ sampleOn rate graphS
 
---graphState = foldp Graph.update C.model graphSignal
---graphSignal = (ui time -> { expr <- u.expr, exprs <- u.exprs, time <- time }) 
---                <~ Ui.state
---                 ~ foldp (+) 0 (fps C.fps)
-graphFromUi g u = { g | expr <- u.expr, exprs <- u.exprs }
+graphS = graphFromUi <~ Ui.state ~ totalTime
+totalTime = foldp (+) 0 rate
+rate = fps C.fps
+
+graphFromUi u time = 
+    { value=u.value
+    , values=u.values
+    , expr=u.expr
+    , time = time }
 
 -- Combine drawings
 scene : Element -> Element -> Element

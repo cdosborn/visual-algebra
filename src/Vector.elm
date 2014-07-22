@@ -48,34 +48,25 @@ eval s =
         _ -> Abyss
     _ -> Abyss
 
+-- Pre: The space passed is composed of mutable (containing Scale/Rotate)
+--      or Vector
+-- Post: Returns Abyss if condition above is not met, otherwise returns
+--       Scale/Rotate mutated by theta, ignores Vector
 mEval : Float -> Space -> Space 
 mEval theta s = let theta' = theta * 10 in
     case s of
     Vector a b c -> s
-    Unit a -> unit (mEval theta a)
     Scale a -> scale (mEval theta a) (cos theta')
     Rotate a b ->
         let a' = mEval theta a
             b' = unit (mEval theta b)
-        in case b' `dot` a' of
+        in 
+            case b' `dot` a' of
             Nothing -> Abyss
             Just dotp -> 
                 (scale a' (cos theta')) 
                 `add` (scale (b' `cross` a') (sin theta'))
                 `add` (scale (scale b' dotp) (1 - (cos theta')))
-    Negate a -> scale (mEval theta a) -1
-    Add a b -> add (mEval theta a) (mEval theta b)
-    Subtract a b -> subtract (mEval theta a) (mEval theta b)
-    Project a b -> case (mEval theta a) of
-        Vector c d e -> (case (mEval theta b) of
-        Vector f g h -> (Vector c d e) `project` (Vector f g h)
-        _ -> Abyss)
-        _ -> Abyss
-    Reject a b -> case (mEval theta a) of
-        Vector c d e -> (case (mEval theta b) of
-        Vector f g h -> (Vector c d e) `reject` (Vector f g h)
-        _ -> Abyss)
-        _ -> Abyss
     _ -> Abyss
 
 modF a b =

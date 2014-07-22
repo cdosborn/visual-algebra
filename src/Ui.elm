@@ -65,11 +65,24 @@ update (action, button) model =
 varUpdate varId model =
     let index = model.index -- index of expression to replace value
         expr = E.replace index model.expr (E.Ref varId)
+        value = V.eval (exprToSpace expr model.exprs model.values)
         history = (C.Var varId C.Available)::model.history 
+        indexAtEnd = atEnd expr index
     in { model | expr <- expr 
+       , value <- value
        , index <- index + 1 
-       , meta <- getMeta model.meta history expr model.exprs
+       , vars <- if indexAtEnd then setN (length model.values) 2 model.vars else model.vars 
+       , funs <- if indexAtEnd then setN (A.length model.funs) 2 model.funs else model.funs
+       , meta <- getMeta model.meta history expr model.exprs value
        , history <- history }
+
+-- Post: returns true if the current index points to end
+--       of expr
+atEnd expr index = (E.count expr) == (index + 1)
+setN n x arr =
+    if n == 0 then arr
+    else setN (n - 1) x (A.set (n - 1) x arr)
+    
 
 -- Pre: assumes buttonId refers to the id of a variable button
 -- Post: updates model based on the button clicked
@@ -83,7 +96,7 @@ funUpdate funId model =
         history = (C.Fun funId C.Available)::model.history 
     in { model | expr <- expr 
        , index <- index + 1
-       , meta <- getMeta model.meta history expr model.exprs
+       , meta <- getMeta model.meta history expr model.exprs model.value
        , history <- history }
  
 metaUpdate metaId model = 
@@ -95,11 +108,15 @@ metaUpdate metaId model =
 
 onSave model =
     let exprs = model.exprs ++ [model.expr]
+        values = model.values ++ [model.value]
     in { model | expr <- E.Empty
        , exprs <- exprs
+       , value <- V.Abyss
+       , values <- values
        , index <- 0
-       , vars <- A.set (length model.exprs) 0 model.vars
-       , meta <- getMeta model.meta model.history E.Empty exprs }
+       , vars <- setN (length values) 0 model.vars
+       , funs <- setN (A.length model.funs) 0 model.funs
+       , meta <- getMeta model.meta model.history E.Empty exprs V.Abyss}
  
 -- Pre: assumes model.history contains at least [undoButton, aChange]
 -- Post: resets the model to previous state
@@ -117,15 +134,18 @@ onUndo model =
         m = foldr (\arg modl -> update arg modl) C.model args
     in { m | history <- history 
        , base <- base 
-       , meta <- getMeta m.meta history m.expr m.exprs
+       , meta <- getMeta m.meta history m.expr m.exprs m.value
        , basis <- model.basis
        , units <- model.units}
     --_ -> fail otherwise history should always have 2 on undo
 
 onClear model =
     { model | expr <- E.Empty
+    , value <- V.Abyss
     , index <- 0 
-    , meta <- getMeta model.meta model.history E.Empty model.exprs }
+    , vars <- setN (length model.values) 0 model.vars
+    , funs <- setN (A.length model.funs) 0 model.funs
+    , meta <- getMeta model.meta model.history E.Empty model.exprs V.Abyss}
 
 --onQuestion model =
 --    { model | query <- True
@@ -156,19 +176,19 @@ showRedoAux history index =
     (C.Meta 2 _)::more-> showRedoAux more (index + 1)
     _ -> False
 
-showSave : E.Expr -> [E.Expr] -> Bool
-showSave expr exprs = 
-    (length exprs) < 7 && (not ((V.eval (C.exprToSpace expr exprs C.values)) == V.Abyss))
+showSave : [E.Expr] -> V.Space -> Bool
+showSave exprs value = 
+    (length exprs) < 7 && ((V.mEval 1.0 value) /= V.Abyss)
 
 showClear : E.Expr -> Bool
 showClear expr =
     (not (expr == E.Empty))
 
-getMeta meta history expr exprs =
-    let meta'    = if showUndo history    then A.set 1 0 meta    else A.set 1 2 meta 
-        meta''   = if showRedo history    then A.set 2 0 meta'   else A.set 2 2 meta'
-        meta'''  = if showSave expr exprs then A.set 0 0 meta''  else A.set 0 2 meta''
-        meta'''' = if showClear expr      then A.set 3 0 meta''' else A.set 3 2 meta'''
+getMeta meta history expr exprs value =
+    let meta'    = if showUndo history     then A.set 1 0 meta    else A.set 1 2 meta 
+        meta''   = if showRedo history     then A.set 2 0 meta'   else A.set 2 2 meta'
+        meta'''  = if showSave exprs value then A.set 0 0 meta''  else A.set 0 2 meta''
+        meta'''' = if showClear expr       then A.set 3 0 meta''' else A.set 3 2 meta'''
     in meta''''
 
 -- Post: irreversibly reduces the history by removing oldest undo/redo
@@ -329,4 +349,22 @@ getButton buttonType buttonState index =
 --        let name = head (drop index C.vars) 
 --        in name ++ " = " ++ (E.toString C.funs C.vars (head (drop index exprs)))
 
+exprToSpace expr exprs values =
+    case expr of
+    E.Empty -> V.Abyss
+    E.Val valId -> head (drop valId values)
+    E.Ref varId -> exprToSpace (head (drop varId exprs)) exprs values
+    E.Unary funId e -> let s = exprToSpace e exprs values in
+        if | funId == 4 -> V.Unit s
+           | funId == 5 -> V.Negate s
+           | funId == 6 -> V.Scale s
+           | funId == 8 -> V.Trace s
+    E.Duo funId a b -> 
+        let s1 = exprToSpace a exprs values
+            s2 = exprToSpace b exprs values
+        in if | funId == 0 -> V.Add s1 s2
+              | funId == 1 -> V.Subtract s1 s2
+              | funId == 2 -> V.Project s1 s2
+              | funId == 3 -> V.Reject s1 s2
+              | funId == 7 -> V.Rotate s1 s2
 
