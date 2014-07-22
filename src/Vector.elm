@@ -24,42 +24,20 @@ data Space = Abyss
            | Rotate Space Space
            | Trace Space
 
--- Pre: takes list of spaces, ignoring non-vector spaces
--- Post: Returns the space represented by the span of vector spaces
-eval : Space -> Space 
-eval s = 
-    case s of
-    Vector a b c -> s
-    Unit a -> unit (eval a)
-    Scale a -> Scale (eval a)
-    Rotate a b -> Rotate (eval a) (eval b)
-    Negate a -> scale (eval a) -1
-    Add a b -> add (eval a) (eval b)
-    Subtract a b -> subtract (eval a) (eval b)
-    Project a b -> case (eval a) of
-        Vector c d e -> (case (eval b) of
-        Vector f g h -> (Vector c d e) `project` (Vector f g h)
-        _ -> Abyss)
-        _ -> Abyss
-    Reject a b -> case (eval a) of
-        Vector c d e -> (case (eval b) of
-        Vector f g h -> (Vector c d e) `reject` (Vector f g h)
-        _ -> Abyss)
-        _ -> Abyss
-    _ -> Abyss
-
 -- Pre: The space passed is composed of mutable (containing Scale/Rotate)
 --      or Vector
 -- Post: Returns Abyss if condition above is not met, otherwise returns
 --       Scale/Rotate mutated by theta, ignores Vector
-mEval : Float -> Space -> Space 
-mEval theta s = let theta' = theta * 10 in
+eval : Float -> Space -> Space 
+eval theta s = let theta' = theta * 10 in
     case s of
     Vector a b c -> s
-    Scale a -> scale (mEval theta a) (cos theta')
+    Negate a -> scale (eval theta a) -1
+    Unit a -> unit (eval theta a)
+    Scale a -> scale (eval theta a) (cos theta')
     Rotate a b ->
-        let a' = mEval theta a
-            b' = unit (mEval theta b)
+        let a' = eval theta a
+            b' = unit (eval theta b)
         in 
             case b' `dot` a' of
             Nothing -> Abyss
@@ -67,6 +45,20 @@ mEval theta s = let theta' = theta * 10 in
                 (scale a' (cos theta')) 
                 `add` (scale (b' `cross` a') (sin theta'))
                 `add` (scale (scale b' dotp) (1 - (cos theta')))
+    Add a b -> add (eval theta a) (eval theta b)
+    Subtract a b -> subtract (eval theta a) (eval theta b)
+    Project a b -> case (eval theta a) of
+        Vector c d e -> (case (eval theta b) of
+        Vector f g h -> (Vector c d e) `project` (Vector f g h)
+        _ -> Abyss)
+        _ -> Abyss
+    Reject a b -> case (eval theta a) of
+        Vector c d e -> (case (eval theta b) of
+        Vector f g h -> (Vector c d e) `reject` (Vector f g h)
+        _ -> Abyss)
+        _ -> Abyss
+    _ -> Abyss
+
     _ -> Abyss
 
 modF a b =
@@ -287,9 +279,9 @@ unit : Space -> Space
 unit v = 
     case distance v of
     Just dist -> (case v of
-        Vector a b c -> Vector (a / dist) (b / dist) (c / dist)
+        Vector a b c -> scale v (1 / dist)
         _ -> Abyss)
-    _ -> Abyss
+    _ -> v
 
 
 -- Pre: Assumes vector is a pair of floats

@@ -57,8 +57,8 @@ render (w, h) {value, values, expr, time} =
                , (V.Vector 0 0 1, greyscale 0.3, Nothing)
                ]
         theta = C.omega * time / 1000
-        values' = map (V.mEval theta) values
-        value'  = V.mEval theta value
+        values' = map (V.eval theta) values
+        value'  = V.eval theta value
         len = length values'
         getSpaces = (\ids -> map (\i -> (head (drop i values'), head (drop i C.colors), Just (head (drop i C.vars)))) ids)
         allSpaces = if value' == V.Abyss 

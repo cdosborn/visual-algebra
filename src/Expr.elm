@@ -13,6 +13,7 @@ toString : [String] -> [String] -> Expr -> String
 toString funIndex varIndex expr = 
     case expr of
     Empty -> "_"
+    Val i -> "vector"
     Ref i -> head (drop i varIndex)
     Unary i e -> 
         let funName = head (drop i funIndex)
