@@ -47,7 +47,7 @@ model = {
         -- ui part 
         , funs = A.repeat 8 0
         , vars = A.fromList [0,0,0,0,3,3,3] 
-        , meta = A.fromList [2,2,2,2,0,3,3]
+        , meta = A.fromList [2,2,2,2,0,2]
         , index = 0 -- index of expr
         , history = [] -- buffer of buttons which can be undone
         , base = [] -- buffer of commited changes
@@ -60,7 +60,7 @@ model = {
         , theta = 0 -- determines rotation and scaling
         }
 
-units = 2.0
+units = 1.0
 basis  = [(0,60),(60,0),(0,60)]
 historyLimit = 20
 velocity = pi/10
@@ -77,7 +77,7 @@ expressions = [ E.Val 0
               , E.Val 3 ]
 
 funs = [ "add", "subtract", "project", "reject", "unit", "negate", "scale", "rotate"]--, "trace"]
-meta = [ "save", "undo", "redo", "clear", "...", "?", "reset", "about"]
+meta = [ "save", "undo", "redo", "clear", "?", "reset", "about"]
 funDefs =   [ "add a b - returns the sum of a and b"
             , "subtract a b - returns the difference of a and b" 
             , "project a b - returns the projection of a onto b, where the projection is the component of the first which is parallel to the second"
@@ -94,7 +94,6 @@ metaDefs =  [
             , "undo - undoes the last change"
             , "redo - seriously?" 
             , "clear - clears the current expression"
-            , "..."
             , "? - provides info about any button"
             , "reset - resets to initial state"
             ]
