@@ -90,17 +90,14 @@ metaUpdate metaId model =
     if | metaId == 0 -> onSave m
        | metaId == 1 || metaId == 2 -> onUndo m
        | metaId == 3 -> onClear m
-       | metaId == 4 -> let meta = A.set 6 2 <| A.set 5 0 <| A.set 4 3 model.meta in
-        { model | meta <- meta}
-       | metaId == 5 -> onQuestion model 
-       | metaId == 6 -> let d = C.model in
-            { d | meta <- model.meta }
+       | metaId == 4 -> onQuestion model 
+       | metaId == 5 -> C.model
        | otherwise -> model
 
 queryUpdate btn model = 
     case btn of
-    C.Meta 5 -> { model | inQuery <- False, query <- C.None, info <- ""
-                , meta <- getMeta (A.set 5 0 model.meta) model.history model.expr model.exprs model.value }
+    C.Meta 4 -> { model | inQuery <- False, query <- C.None, info <- ""
+                , meta <- getMeta (A.set 4 0 model.meta) model.history model.expr model.exprs model.value }
     _ -> { model | query <- btn, info <- getInfo btn model.exprs }
 
 
@@ -144,7 +141,7 @@ onClear model =
 
 onQuestion model =
     { model | inQuery <- True
-    , meta <- A.set 5 1 <| A.set 4 3 <| setN (A.length model.meta) 0 model.meta
+    , meta <- A.set 4 1 <| setN (A.length model.meta) 0 model.meta
     }
 
 -- Post: returns length of history, minus initial consecutive undos/redos
@@ -180,12 +177,17 @@ showClear : E.Expr -> Bool
 showClear expr =
     (not (expr == E.Empty))
 
+showReset : [C.Button] -> Bool
+showReset history =
+    history /= []
+
 getMeta meta history expr exprs value =
-    let meta'     = if showUndo history     then A.set 1 0 meta    else A.set 1 2 meta 
-        meta''    = if showRedo history     then A.set 2 0 meta'   else A.set 2 2 meta'
-        meta'''   = if showSave exprs value then A.set 0 0 meta''  else A.set 0 2 meta''
-        meta''''  = if showClear expr       then A.set 3 0 meta''' else A.set 3 2 meta'''
-    in meta''''
+    let meta'     = if showUndo history     then A.set 1 0 meta     else A.set 1 2 meta 
+        meta''    = if showRedo history     then A.set 2 0 meta'    else A.set 2 2 meta'
+        meta'''   = if showSave exprs value then A.set 0 0 meta''   else A.set 0 2 meta''
+        meta''''  = if showClear expr       then A.set 3 0 meta'''  else A.set 3 2 meta'''
+        meta''''' = if showReset history    then A.set 5 0 meta'''' else A.set 5 2 meta''''
+    in meta'''''
 
 -- Post: irreversibly reduces the history by removing oldest undo/redo
 --       expression to what is currently intended, includes count of undos removed                  
@@ -239,10 +241,11 @@ render (w, h) model =
         , spacer 10 10
         , width 700 (leftAligned (T.height 30 (monospace (toText expression))))
         , spacer 10 10
-        , width 250 (flow right varButtons)
-        , height 69 (width 250 (flow right funButtons))
-        , height 46 (width 230 (flow right metaButtons))
-        , spacer 250 23
+        , width 200 (flow right varButtons)
+        , height 69 (width 200 (flow right funButtons))
+        , spacer 10 20
+        , height 46 (width 200 (flow right metaButtons))
+        , spacer 200 23
         , (spacer 5 1) `beside` (width 500 (leftAligned (T.height 15 (monospace (toText model.info)))))
 --      , width 500 (asText model.query)
 --      , width 500 (asText model.expr)
@@ -296,7 +299,7 @@ getButton buttonType buttonState index =
         contained = container (w + 10) (h + 5) middle element
         linked = link "#" contained
         styled = if | buttonState == 0 -> linked
-                    | buttonState == 1 -> color (rgba 0 0 0 0.1) linked
+                    | buttonState == 1 -> color (rgba 0 0 0 0.3) linked
                     | otherwise -> opacity 0.5 linked
         btn = if | buttonState == 2 -> C.None
                  | buttonType == 0 -> C.Fun  index
