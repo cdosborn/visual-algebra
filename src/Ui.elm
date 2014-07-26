@@ -237,7 +237,7 @@ render (w, h) model =
 --      funDefinition = defFromFun model.funQueue
     in container w h (topLeftAt (relative 0.2) (relative 0.2)) (flow down 
         [ (leftAligned (T.height 30 (monospace (toText "visual-algebra"))))
-        , (leftAligned (T.height 10 (monospace (toText "v0.01 E-5 alpha"))))
+        , (leftAligned (T.height 10 (monospace (toText "v. 1.0e-5 alpha alpha ..."))))
         , spacer 10 10
         , width 700 (leftAligned (T.height 30 (monospace (toText expression))))
         , spacer 10 10
