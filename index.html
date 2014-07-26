@@ -154,7 +154,7 @@ Elm.Ui.make = function (_elm) {
                  7) ? A2(Vector.Rotate,
                  s1,
                  s2) : _E.If($moduleName,
-                 "between lines 355 and 359");
+                 "between lines 358 and 362");
               }();
             case "Empty":
             return Vector.Abyss;
@@ -176,14 +176,14 @@ Elm.Ui.make = function (_elm) {
                  5) ? Vector.Negate(s) : _U.eq(expr._0,
                  6) ? Vector.Scale(s) : _U.eq(expr._0,
                  8) ? Vector.Trace(s) : _E.If($moduleName,
-                 "between lines 348 and 351");
+                 "between lines 351 and 354");
               }();
             case "Val":
             return List.head(A2(List.drop,
               expr._0,
               values));}
          _E.Case($moduleName,
-         "between lines 343 and 359");
+         "between lines 346 and 362");
       }();
    });
    var getInfo = F2(function (b,
@@ -212,7 +212,7 @@ Elm.Ui.make = function (_elm) {
                  exprs)))));
               }();}
          _E.Case($moduleName,
-         "between lines 334 and 340");
+         "between lines 337 and 343");
       }();
    });
    var toggleList = F2(function ($new,
@@ -228,7 +228,7 @@ Elm.Ui.make = function (_elm) {
             case "[]":
             return _L.fromArray([$new]);}
          _E.Case($moduleName,
-         "between lines 271 and 276");
+         "between lines 274 and 279");
       }();
    });
    var inputs = Graphics.Input.input(Constants.None);
@@ -242,7 +242,7 @@ Elm.Ui.make = function (_elm) {
          0) ? Constants.Fun(index) : _U.eq(buttonType,
          1) ? Constants.Var(index) : _U.eq(buttonType,
          2) ? Constants.Meta(index) : _E.If($moduleName,
-         "between lines 301 and 304");
+         "between lines 304 and 307");
          var name = _U.eq(buttonType,
          0) ? List.head(A2(List.drop,
          index,
@@ -253,7 +253,7 @@ Elm.Ui.make = function (_elm) {
          2) ? List.head(A2(List.drop,
          index,
          Constants.meta)) : _E.If($moduleName,
-         "between lines 287 and 289");
+         "between lines 290 and 292");
          var element = false ? Text.leftAligned(A2(Text.height,
          15,
          Text.monospace(A2(Text.color,
@@ -276,7 +276,7 @@ Elm.Ui.make = function (_elm) {
          var styled = _U.eq(buttonState,
          0) ? linked : _U.eq(buttonState,
          1) ? A2(Graphics.Element.color,
-         A4(Color.rgba,0,0,0,0.1),
+         A4(Color.rgba,0,0,0,0.3),
          linked) : A2(Graphics.Element.opacity,
          0.5,
          linked);
@@ -318,7 +318,7 @@ Elm.Ui.make = function (_elm) {
               query._0,
               Constants.vars)));}
          _E.Case($moduleName,
-         "between lines 253 and 257");
+         "between lines 256 and 260");
       }();
    };
    var render = F2(function (_v19,
@@ -374,26 +374,29 @@ Elm.Ui.make = function (_elm) {
                               10,
                               10)
                               ,A2(Graphics.Element.width,
-                              250,
+                              200,
                               A2(Graphics.Element.flow,
                               Graphics.Element.right,
                               varButtons))
                               ,A2(Graphics.Element.height,
                               69,
                               A2(Graphics.Element.width,
-                              250,
+                              200,
                               A2(Graphics.Element.flow,
                               Graphics.Element.right,
                               funButtons)))
+                              ,A2(Graphics.Element.spacer,
+                              10,
+                              20)
                               ,A2(Graphics.Element.height,
                               46,
                               A2(Graphics.Element.width,
-                              230,
+                              200,
                               A2(Graphics.Element.flow,
                               Graphics.Element.right,
                               metaButtons)))
                               ,A2(Graphics.Element.spacer,
-                              250,
+                              200,
                               23)
                               ,A2(Graphics.Element.beside,
                               A2(Graphics.Element.spacer,5,1),
@@ -404,7 +407,7 @@ Elm.Ui.make = function (_elm) {
                               Text.monospace(Text.toText(model.info))))))])));
               }();}
          _E.Case($moduleName,
-         "between lines 226 and 250");
+         "between lines 228 and 253");
       }();
    });
    var getChangesAux = F3(function (history,
@@ -446,7 +449,7 @@ Elm.Ui.make = function (_elm) {
                  _L.fromArray([history._0])),
                  0);}
             _E.Case($moduleName,
-            "between lines 220 and 222");
+            "between lines 222 and 224");
          }();
       }();
    });
@@ -500,6 +503,10 @@ Elm.Ui.make = function (_elm) {
       _L.fromArray([]),
       0,
       0);
+   };
+   var showReset = function (history) {
+      return !_U.eq(history,
+      _L.fromArray([]));
    };
    var showClear = function (expr) {
       return Basics.not(_U.eq(expr,
@@ -597,7 +604,14 @@ Elm.Ui.make = function (_elm) {
          3,
          2,
          meta$$$);
-         return meta$$$$;
+         var meta$$$$$ = showReset(history) ? A3(Array.set,
+         5,
+         0,
+         meta$$$$) : A3(Array.set,
+         5,
+         2,
+         meta$$$$);
+         return meta$$$$$;
       }();
    });
    var historyLength = function (history) {
@@ -635,14 +649,14 @@ Elm.Ui.make = function (_elm) {
       return function () {
          switch (btn.ctor)
          {case "Meta": switch (btn._0)
-              {case 5:
+              {case 4:
                  return _U.replace([["inQuery"
                                     ,false]
                                    ,["query",Constants.None]
                                    ,["info",""]
                                    ,["meta"
                                     ,A5(getMeta,
-                                    A3(Array.set,5,0,model.meta),
+                                    A3(Array.set,4,0,model.meta),
                                     model.history,
                                     model.expr,
                                     model.exprs,
@@ -695,12 +709,10 @@ Elm.Ui.make = function (_elm) {
       return _U.replace([["inQuery"
                          ,true]
                         ,["meta"
-                         ,A2(Array.set,5,1)(A2(Array.set,
-                         4,
-                         3)(A3(setN,
+                         ,A2(Array.set,4,1)(A3(setN,
                          Array.length(model.meta),
                          0,
-                         model.meta)))]],
+                         model.meta))]],
       model);
    };
    var atEnd = F2(function (expr,
@@ -810,26 +822,8 @@ Elm.Ui.make = function (_elm) {
          1) || _U.eq(metaId,
          2) ? onUndo(m) : _U.eq(metaId,
          3) ? onClear(m) : _U.eq(metaId,
-         4) ? function () {
-            var meta = A2(Array.set,
-            6,
-            2)(A2(Array.set,
-            5,
-            0)(A3(Array.set,
-            4,
-            3,
-            model.meta)));
-            return _U.replace([["meta"
-                               ,meta]],
-            model);
-         }() : _U.eq(metaId,
-         5) ? onQuestion(model) : _U.eq(metaId,
-         6) ? function () {
-            var d = Constants.model;
-            return _U.replace([["meta"
-                               ,model.meta]],
-            d);
-         }() : model;
+         4) ? onQuestion(model) : _U.eq(metaId,
+         5) ? Constants.model : model;
       }();
    });
    var onUndo = function (model) {
@@ -903,6 +897,7 @@ Elm.Ui.make = function (_elm) {
                     ,showRedoAux: showRedoAux
                     ,showSave: showSave
                     ,showClear: showClear
+                    ,showReset: showReset
                     ,getMeta: getMeta
                     ,compressHistory: compressHistory
                     ,compressAux: compressAux
@@ -1110,7 +1105,6 @@ Elm.Constants.make = function (_elm) {
                                ,"undo - undoes the last change"
                                ,"redo - seriously?"
                                ,"clear - clears the current expression"
-                               ,"..."
                                ,"? - provides info about any button"
                                ,"reset - resets to initial state"]);
    var funDefs = _L.fromArray(["add a b - returns the sum of a and b"
@@ -1125,7 +1119,6 @@ Elm.Constants.make = function (_elm) {
                            ,"undo"
                            ,"redo"
                            ,"clear"
-                           ,"..."
                            ,"?"
                            ,"reset"
                            ,"about"]);
@@ -1159,7 +1152,7 @@ Elm.Constants.make = function (_elm) {
                             ,{ctor: "_Tuple2"
                              ,_0: 0
                              ,_1: 60}]);
-   var units = 2.0;
+   var units = 1.0;
    var GraphModel = F4(function (a,
    b,
    c,
@@ -1245,11 +1238,10 @@ Elm.Constants.make = function (_elm) {
                                                   ,2
                                                   ,2
                                                   ,0
-                                                  ,3
-                                                  ,3]))
+                                                  ,2]))
                ,query: None
                ,theta: 0
-               ,units: 1
+               ,units: units
                ,value: Vector.Abyss
                ,values: values
                ,vars: Array.fromList(_L.fromArray([0

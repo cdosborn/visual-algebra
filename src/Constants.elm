@@ -56,7 +56,7 @@ model = {
         , query = None
         -- graph part
         , basis  = basis
-        , units = 1
+        , units = units
         , theta = 0 -- determines rotation and scaling
         }
 
