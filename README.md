@@ -1,4 +1,4 @@
-visual-algebra live-[demo](http://cdosborn.github.io/visual-algebra/)
+visual-algebra - live [demo](http://cdosborn.github.io/visual-algebra/)
 ==============
 
 an application for graphing vector expressions
