@@ -154,7 +154,7 @@ Elm.Ui.make = function (_elm) {
                  7) ? A2(Vector.Rotate,
                  s1,
                  s2) : _E.If($moduleName,
-                 "between lines 358 and 362");
+                 "between lines 360 and 364");
               }();
             case "Empty":
             return Vector.Abyss;
@@ -176,14 +176,14 @@ Elm.Ui.make = function (_elm) {
                  5) ? Vector.Negate(s) : _U.eq(expr._0,
                  6) ? Vector.Scale(s) : _U.eq(expr._0,
                  8) ? Vector.Trace(s) : _E.If($moduleName,
-                 "between lines 351 and 354");
+                 "between lines 353 and 356");
               }();
             case "Val":
             return List.head(A2(List.drop,
               expr._0,
               values));}
          _E.Case($moduleName,
-         "between lines 346 and 362");
+         "between lines 348 and 364");
       }();
    });
    var getInfo = F2(function (b,
@@ -212,7 +212,7 @@ Elm.Ui.make = function (_elm) {
                  exprs)))));
               }();}
          _E.Case($moduleName,
-         "between lines 337 and 343");
+         "between lines 339 and 345");
       }();
    });
    var toggleList = F2(function ($new,
@@ -228,7 +228,7 @@ Elm.Ui.make = function (_elm) {
             case "[]":
             return _L.fromArray([$new]);}
          _E.Case($moduleName,
-         "between lines 274 and 279");
+         "between lines 276 and 281");
       }();
    });
    var inputs = Graphics.Input.input(Constants.None);
@@ -242,7 +242,7 @@ Elm.Ui.make = function (_elm) {
          0) ? Constants.Fun(index) : _U.eq(buttonType,
          1) ? Constants.Var(index) : _U.eq(buttonType,
          2) ? Constants.Meta(index) : _E.If($moduleName,
-         "between lines 304 and 307");
+         "between lines 306 and 309");
          var name = _U.eq(buttonType,
          0) ? List.head(A2(List.drop,
          index,
@@ -253,7 +253,7 @@ Elm.Ui.make = function (_elm) {
          2) ? List.head(A2(List.drop,
          index,
          Constants.meta)) : _E.If($moduleName,
-         "between lines 290 and 292");
+         "between lines 292 and 294");
          var element = false ? Text.leftAligned(A2(Text.height,
          15,
          Text.monospace(A2(Text.color,
@@ -318,7 +318,7 @@ Elm.Ui.make = function (_elm) {
               query._0,
               Constants.vars)));}
          _E.Case($moduleName,
-         "between lines 256 and 260");
+         "between lines 258 and 262");
       }();
    };
    var render = F2(function (_v19,
@@ -327,6 +327,16 @@ Elm.Ui.make = function (_elm) {
          switch (_v19.ctor)
          {case "_Tuple2":
             return function () {
+                 var style30 = function (str) {
+                    return Text.leftAligned(A2(Text.height,
+                    30,
+                    Text.monospace(Text.toText(str))));
+                 };
+                 var style10 = function (str) {
+                    return Text.leftAligned(A2(Text.height,
+                    10,
+                    Text.monospace(Text.toText(str))));
+                 };
                  var expression = model.inQuery ? queryToString(model.query) : A3(Expr.toString,
                  Constants.funs,
                  Constants.vars,
@@ -359,9 +369,15 @@ Elm.Ui.make = function (_elm) {
                  _L.fromArray([Text.leftAligned(A2(Text.height,
                               30,
                               Text.monospace(Text.toText("visual-algebra"))))
-                              ,Text.leftAligned(A2(Text.height,
-                              10,
-                              Text.monospace(Text.toText("v0.01 E-5 alpha"))))
+                              ,A2(Graphics.Element.beside,
+                              A2(Graphics.Element.beside,
+                              A2(Graphics.Element.link,
+                              "https://github.com/cdosborn/visual-algebra",
+                              style10("src")),
+                              style10(" in ")),
+                              A2(Graphics.Element.link,
+                              "http://elm-lang.org/",
+                              style10("elm")))
                               ,A2(Graphics.Element.spacer,
                               10,
                               10)
@@ -407,7 +423,7 @@ Elm.Ui.make = function (_elm) {
                               Text.monospace(Text.toText(model.info))))))])));
               }();}
          _E.Case($moduleName,
-         "between lines 228 and 253");
+         "between lines 228 and 255");
       }();
    });
    var getChangesAux = F3(function (history,
