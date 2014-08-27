@@ -76,7 +76,7 @@ compareQuadrants angle (a,b,c,quad1) (d,e,f,quad2) =
     if | quad1 == quad2 -> compareSameQuadrant angle a d
        | quad1 <= 4 && quad2 >  4 -> GT
        | quad1 >  4 && quad1 <= 4 -> LT
-       | True -> let (q1, q2) = ((quad1 `mod` 4) + 1,(quad2 `mod` 4) + 1) in -- on same quadrant level upper or lower 4
+       | True -> let (q1, q2) = ((quad1 % 4) + 1,(quad2 % 4) + 1) in -- on same quadrant level upper or lower 4
         if | angle < (pi*1/2) -> (if | q1 == 3 || q2 == 1 -> GT
                                      | q2 == 3 || q1 == 1 -> LT
                                      | True -> EQ)

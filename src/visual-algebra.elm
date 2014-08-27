@@ -22,14 +22,18 @@ import Debug (log)
 -}
 
 -- Display app 
+
 main = scene <~ graph ~ ui
 
 -- Draw each module, communicate between graph/ui
+
 ui = Ui.render <~ Window.dimensions 
                 ~ Ui.state
 
 graph = Graph.render <~ Window.dimensions 
                       ~ sampleOn rate graphS
+
+-- Compose graph signal from necessary Ui signal
 
 graphS = graphFromUi <~ Ui.state ~ totalTime
 totalTime = foldp (+) 0 rate
@@ -42,8 +46,7 @@ graphFromUi u time =
     , time = time }
 
 -- Combine drawings
+
 scene : Element -> Element -> Element
 scene g u = 
      layers [ g, u ]
-
-

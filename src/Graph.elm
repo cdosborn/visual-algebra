@@ -64,10 +64,8 @@ render (w, h) {value, values, expr, time} =
         allSpaces = if value' == V.Abyss 
                     then getSpaces [0 .. (len - 1)]
                     else [(value', (head (drop len C.colors)), Nothing)] ++ (getSpaces (E.getDependencies expr))
-        sorted = (axis ++ allSpaces)--V.sortSpaces theta (axis ++ allSpaces)
-        forms = map (\(s, col, label) -> (V.draw basis C.units label col s)) sorted
+        forms = map (\(s, col, label) -> (V.draw basis C.units label col s)) (axis ++ allSpaces)
         grid = V.drawGrid basis C.units
-        msg = [toForm (asText theta)]
-        allForms = grid ++ forms --++ msg
+        allForms = grid ++ forms
     in collage w h allForms
 

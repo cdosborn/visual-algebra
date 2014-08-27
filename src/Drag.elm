@@ -26,6 +26,6 @@ subt vec vec2 = (-1 * ((fst vec) - (fst vec2)), (snd vec) - (snd vec2))
 
 -- Adjusts coordinates with respect to center of window
 center (w,h) p = 
-    let x = (fst p) - (div w 2)
-        y = -(snd p) + (div h 2)
+    let x = (fst p) - (w // 2)
+        y = -(snd p) + (h // 2)
     in (x, y)

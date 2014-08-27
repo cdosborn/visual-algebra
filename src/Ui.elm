@@ -311,27 +311,6 @@ getButton buttonType buttonState index =
 ------- then styled
 ------- else clickable inputs.handle btn styled 
         
-
---defsFromExps : [[Int]] -> [Element]
---defsFromExps exps =
---    let len = length exps
---        defs = getDefs (take 7 exps) [] 0
---        elems =  map (\str -> leftAligned (T.height 15 (monospace (toText str)))) (take (len - 1) defs)
---        temp = if len == 8 then []
---               else [opacity 0.5 (leftAligned (T.height 15 (monospace (toText (last defs)))))]
---    in elems ++ temp
---
---getDefs : [[Int]] -> [String] -> Int -> [String]
---getDefs listOfLists solutions index = 
---    case listOfLists of
---    [] -> solutions
---    front::more -> 
---        let def = getDef front
---            var = head (drop index C.vars)
---            result = var ++ " = " ++ def
---        in getDefs more (solutions ++ [result]) (index + 1)
---
--- Pre: length exp > 0
 getInfo : C.Button -> [E.Expr] -> String
 getInfo b exprs = 
     case b of
