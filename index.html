@@ -127,7 +127,7 @@ Elm.Ui.make = function (_elm) {
                  7) ? A2($Vector.Rotate,
                  s1,
                  s2) : _E.If($moduleName,
-                 "between lines 337 and 341");
+                 "between lines 329 and 333");
               }();
             case "Empty":
             return $Vector.Abyss;
@@ -149,14 +149,14 @@ Elm.Ui.make = function (_elm) {
                  5) ? $Vector.Negate(s) : _U.eq(expr._0,
                  6) ? $Vector.Scale(s) : _U.eq(expr._0,
                  8) ? $Vector.Trace(s) : _E.If($moduleName,
-                 "between lines 330 and 333");
+                 "between lines 322 and 325");
               }();
             case "Val":
             return $List.head(A2($List.drop,
               expr._0,
               values));}
          _E.Case($moduleName,
-         "between lines 325 and 341");
+         "between lines 317 and 333");
       }();
    });
    var getInfo = F2(function (b,
@@ -185,7 +185,7 @@ Elm.Ui.make = function (_elm) {
                  exprs)))));
               }();}
          _E.Case($moduleName,
-         "between lines 316 and 322");
+         "between lines 308 and 314");
       }();
    });
    var toggleList = F2(function ($new,
@@ -199,7 +199,7 @@ Elm.Ui.make = function (_elm) {
             case "[]":
             return _L.fromArray([$new]);}
          _E.Case($moduleName,
-         "between lines 274 and 279");
+         "between lines 269 and 274");
       }();
    });
    var inputs = $Graphics$Input.input($Constants.None);
@@ -213,7 +213,7 @@ Elm.Ui.make = function (_elm) {
          0) ? $Constants.Fun(index) : _U.eq(buttonType,
          1) ? $Constants.Var(index) : _U.eq(buttonType,
          2) ? $Constants.Meta(index) : _E.If($moduleName,
-         "between lines 304 and 307");
+         "between lines 296 and 299");
          var name = _U.eq(buttonType,
          0) ? $List.head(A2($List.drop,
          index,
@@ -224,16 +224,12 @@ Elm.Ui.make = function (_elm) {
          2) ? $List.head(A2($List.drop,
          index,
          $Constants.meta)) : _E.If($moduleName,
-         "between lines 290 and 292");
-         var element = false ? $Text.leftAligned(A2($Text.height,
+         "between lines 285 and 287");
+         var element = $Text.leftAligned(A2($Text.height,
          15,
          $Text.monospace(A2($Text.color,
-         $List.head(A2($List.drop,
-         index,
-         $Constants.colors)),
-         $Text.toText(name))))) : $Text.leftAligned(A2($Text.height,
-         15,
-         $Text.monospace($Text.toText(name))));
+         $Color.black,
+         $Text.toText(name)))));
          var w = $Graphics$Element.widthOf(element);
          var h = $Graphics$Element.heightOf(element);
          var contained = A4($Graphics$Element.container,
@@ -289,7 +285,7 @@ Elm.Ui.make = function (_elm) {
               query._0,
               $Constants.vars)));}
          _E.Case($moduleName,
-         "between lines 256 and 260");
+         "between lines 251 and 255");
       }();
    };
    var render = F2(function (_v19,
@@ -380,7 +376,7 @@ Elm.Ui.make = function (_elm) {
                               $Text.monospace($Text.toText(model.info))))))])));
               }();}
          _E.Case($moduleName,
-         "between lines 228 and 253");
+         "between lines 223 and 248");
       }();
    });
    var getChangesAux = F3(function (history,
@@ -422,7 +418,7 @@ Elm.Ui.make = function (_elm) {
                  _L.fromArray([history._0])),
                  0);}
             _E.Case($moduleName,
-            "between lines 222 and 224");
+            "between lines 217 and 219");
          }();
       }();
    });
@@ -779,7 +775,7 @@ Elm.Ui.make = function (_elm) {
               btn._0,
               model);}
          _E.Case($moduleName,
-         "between lines 43 and 47");
+         "between lines 38 and 42");
       }();
    });
    var metaUpdate = F2(function (metaId,
@@ -986,7 +982,7 @@ Elm.Graph.make = function (_elm) {
                                _v6._1,
                                _v6._0);}
                           _E.Case($moduleName,
-                          "on line 67, column 43 to 75");
+                          "on line 56, column 43 to 75");
                        }();
                     },
                     _L.append(axis,allSpaces));
@@ -1001,7 +997,7 @@ Elm.Graph.make = function (_elm) {
                     allForms);
                  }();}
             _E.Case($moduleName,
-            "between lines 48 and 70");
+            "between lines 37 and 59");
          }();
       }();
    });
