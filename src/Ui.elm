@@ -27,11 +27,6 @@ import Debug (log)
 main = render <~ Window.dimensions ~ state
 state = foldp update C.model signals
 
-
--- Model
---defined in Constants as C.model
-
-
 -- Update
 -- all button interactions (clicks/hovers) constitute the entire events sent to UI
 -- update redirects model updates based on type of update (fun/variable/meta)
@@ -40,11 +35,11 @@ update btn model =
     if model.inQuery
     then queryUpdate btn model
     else 
-    case btn of
-    C.Var  index -> varUpdate  index model
-    C.Fun  index -> funUpdate  index model
-    C.Meta index -> metaUpdate index model
-    C.None -> model
+        case btn of
+        C.Var  index -> varUpdate  index model
+        C.Fun  index -> funUpdate  index model
+        C.Meta index -> metaUpdate index model
+        C.None -> model
 
 
 -- Pre: assumes buttonId refers to the id of a variable button
@@ -290,10 +285,7 @@ getButton buttonType buttonState index =
     let name = if | buttonType == 0 -> head (drop index C.funs) -- function
                   | buttonType == 1 -> head (drop index C.vars) -- var
                   | buttonType == 2 -> head (drop index C.meta) -- meta 
-        element =
-            if False--buttonType == 1
-            then leftAligned (T.height 15 (monospace (T.color (head (drop index C.colors)) (toText name))))
-            else leftAligned (T.height 15 (monospace (toText name)))
+        element = leftAligned (T.height 15 (monospace (T.color black (toText name))))
         w = widthOf element
         h = heightOf element
         contained = container (w + 10) (h + 5) middle element
@@ -307,9 +299,6 @@ getButton buttonType buttonState index =
                  | buttonType == 2 -> C.Meta index
 
     in clickable inputs.handle btn styled 
-------- if buttonState == 2
-------- then styled
-------- else clickable inputs.handle btn styled 
         
 getInfo : C.Button -> [E.Expr] -> String
 getInfo b exprs = 

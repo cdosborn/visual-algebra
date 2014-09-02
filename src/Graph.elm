@@ -31,17 +31,6 @@ import Debug (log)
 
 -}
 
---
---main = render <~ Window.dimensions ~ state
---state = foldp update C.model signals
---
----- Model
---
---model = { delta = 0
---        , space = V.Abyss
---        , spaces = [V.Abyss]
---        , basis  = [(0,40),(40,0),(0,40)] }
-
 -- Render
 render : (Int, Int) -> {value:V.Space,values:[V.Space],expr:E.Expr,time:Time} -> Element
 render (w, h) {value, values, expr, time} =
